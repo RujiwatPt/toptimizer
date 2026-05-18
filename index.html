@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Toptimizer Tasks</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Workspace">
+        <div class="brand">
+          <span class="brand-mark">T</span>
+          <div>
+            <p class="eyebrow">Workspace</p>
+            <h1>Toptimizer</h1>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>Projects</h2>
+            <button class="icon-button" id="newProjectButton" type="button" aria-label="Create project" title="Create project">+</button>
+          </div>
+          <div class="project-list" id="projectList"></div>
+        </section>
+
+        <section class="panel team-panel">
+          <div class="section-heading">
+            <h2>Team</h2>
+            <span id="memberCount">25</span>
+          </div>
+          <div class="member-list" id="memberList"></div>
+        </section>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Project task manager</p>
+            <h2 id="projectTitle">Create a project</h2>
+            <p class="storage-badge" id="storageBadge">Local mode</p>
+          </div>
+          <div class="topbar-actions">
+            <label class="search">
+              <span aria-hidden="true">⌕</span>
+              <input id="searchInput" type="search" placeholder="Search tasks" autocomplete="off" />
+            </label>
+            <button class="ghost-button" id="deleteProjectButton" type="button">Delete project</button>
+            <button class="primary-button" id="newTaskButton" type="button">New task</button>
+          </div>
+        </header>
+
+        <section class="stats-strip" aria-label="Task summary">
+          <div>
+            <span id="totalTasks">0</span>
+            <p>Total</p>
+          </div>
+          <div>
+            <span id="activeTasks">0</span>
+            <p>Active</p>
+          </div>
+          <div>
+            <span id="doneTasks">0</span>
+            <p>Done</p>
+          </div>
+          <div>
+            <span id="unassignedTasks">0</span>
+            <p>Unassigned</p>
+          </div>
+        </section>
+
+        <section class="board" id="board" aria-label="Task board"></section>
+      </main>
+    </div>
+
+    <dialog id="projectDialog">
+      <form method="dialog" class="dialog-form" id="projectForm">
+        <div>
+          <p class="eyebrow">New project</p>
+          <h2>Create project</h2>
+        </div>
+        <label>
+          Project name
+          <input name="name" required maxlength="60" placeholder="Website launch" />
+        </label>
+        <label>
+          Description
+          <textarea name="description" rows="3" maxlength="180" placeholder="What this project is responsible for"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="ghost-button" data-close>Cancel</button>
+          <button type="submit" class="primary-button">Create</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="taskDialog">
+      <form method="dialog" class="dialog-form" id="taskForm">
+        <div>
+          <p class="eyebrow" id="taskDialogMode">New task</p>
+          <h2 id="taskDialogTitle">Task details</h2>
+        </div>
+        <input type="hidden" name="taskId" />
+        <label>
+          Title
+          <input name="title" required maxlength="80" placeholder="Prepare campaign assets" />
+        </label>
+        <label>
+          Notes
+          <textarea name="description" rows="4" maxlength="260" placeholder="Add enough context for the assignee"></textarea>
+        </label>
+        <div class="form-grid">
+          <label>
+            Assignee
+            <select name="assigneeId" id="assigneeSelect"></select>
+          </label>
+          <label>
+            Priority
+            <select name="priority">
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="medium" selected>Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select name="status" id="statusSelect"></select>
+          </label>
+          <label>
+            Due date
+            <input name="dueDate" type="date" />
+          </label>
+        </div>
+        <section class="comments-panel" id="commentsPanel" hidden>
+          <div class="section-heading">
+            <h3>Comments</h3>
+            <span id="commentCount">0</span>
+          </div>
+          <div class="comment-list" id="commentList"></div>
+          <div class="comment-composer">
+            <textarea id="commentInput" rows="3" maxlength="420" placeholder="Add a comment"></textarea>
+            <button type="button" class="ghost-button" id="addCommentButton">Comment</button>
+          </div>
+        </section>
+        <div class="dialog-actions">
+          <button type="button" class="danger-button" id="deleteTaskButton">Delete</button>
+          <button type="button" class="ghost-button" data-close>Cancel</button>
+          <button type="submit" class="primary-button">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

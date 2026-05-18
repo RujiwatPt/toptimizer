@@ -1,0 +1,61 @@
+create table if not exists public.projects (
+  id text primary key,
+  name text not null,
+  description text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.tasks (
+  id text primary key,
+  project_id text not null references public.projects(id) on delete cascade,
+  title text not null,
+  description text not null default '',
+  assignee_id text,
+  priority text not null default 'medium',
+  status text not null default 'todo',
+  due_date date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.comments (
+  id text primary key,
+  task_id text not null references public.tasks(id) on delete cascade,
+  parent_id text references public.comments(id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.projects enable row level security;
+alter table public.tasks enable row level security;
+alter table public.comments enable row level security;
+
+grant usage on schema public to anon;
+grant select, insert, update, delete on public.projects to anon;
+grant select, insert, update, delete on public.tasks to anon;
+grant select, insert, update, delete on public.comments to anon;
+
+drop policy if exists "public projects access" on public.projects;
+drop policy if exists "public tasks access" on public.tasks;
+drop policy if exists "public comments access" on public.comments;
+
+create policy "public projects access"
+on public.projects
+for all
+to anon
+using (true)
+with check (true);
+
+create policy "public tasks access"
+on public.tasks
+for all
+to anon
+using (true)
+with check (true);
+
+create policy "public comments access"
+on public.comments
+for all
+to anon
+using (true)
+with check (true);

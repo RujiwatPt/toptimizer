@@ -48,6 +48,7 @@ const defaultState = {
 
 let state = { ...defaultState };
 let draggedTaskId = "";
+let suppressTaskClickUntil = 0;
 let supabaseClient = null;
 let isSharedMode = false;
 
@@ -734,6 +735,16 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function clearDragState() {
+  draggedTaskId = "";
+  board.querySelectorAll(".task-list.is-drop-target").forEach((list) => {
+    list.classList.remove("is-drop-target");
+  });
+  board.querySelectorAll(".task-card.is-dragging").forEach((card) => {
+    card.classList.remove("is-dragging");
+  });
+}
+
 newProjectButton.addEventListener("click", openProjectDialog);
 newTaskButton.addEventListener("click", () => openTaskDialog());
 deleteProjectButton.addEventListener("click", deleteSelectedProject);
@@ -754,7 +765,7 @@ projectList.addEventListener("click", (event) => {
 });
 
 board.addEventListener("click", (event) => {
-  if (draggedTaskId) return;
+  if (Date.now() < suppressTaskClickUntil) return;
   const button = event.target.closest("[data-task-id]");
   if (!button) return;
   openTaskDialog(button.dataset.taskId);
@@ -773,12 +784,8 @@ board.addEventListener("dragstart", (event) => {
 board.addEventListener("dragend", (event) => {
   const card = event.target.closest("[data-task-id]");
   if (card) card.classList.remove("is-dragging");
-  board.querySelectorAll(".task-list.is-drop-target").forEach((list) => {
-    list.classList.remove("is-drop-target");
-  });
-  window.setTimeout(() => {
-    draggedTaskId = "";
-  }, 0);
+  clearDragState();
+  suppressTaskClickUntil = Date.now() + 250;
 });
 
 board.addEventListener("dragover", (event) => {
@@ -805,7 +812,8 @@ board.addEventListener("drop", (event) => {
 
   event.preventDefault();
   const taskId = event.dataTransfer.getData("text/plain") || draggedTaskId;
-  list.classList.remove("is-drop-target");
+  suppressTaskClickUntil = Date.now() + 250;
+  clearDragState();
   moveTaskToStatus(taskId, list.dataset.statusId);
 });
 

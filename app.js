@@ -46,6 +46,7 @@ const defaultState = {
 let state = { ...defaultState };
 let draggedTaskId = "";
 let suppressTaskClickUntil = 0;
+let activeMobileStatus = "all";
 let supabaseClient = null;
 let isSharedMode = false;
 
@@ -54,6 +55,8 @@ const memberList = document.querySelector("#memberList");
 const memberCount = document.querySelector("#memberCount");
 const projectTitle = document.querySelector("#projectTitle");
 const storageBadge = document.querySelector("#storageBadge");
+const mobileProjectSelect = document.querySelector("#mobileProjectSelect");
+const statusTabs = document.querySelector("#statusTabs");
 const board = document.querySelector("#board");
 const totalTasks = document.querySelector("#totalTasks");
 const activeTasks = document.querySelector("#activeTasks");
@@ -338,6 +341,8 @@ function renderProjects() {
     projectTitle.textContent = "Create a project";
     newTaskButton.disabled = true;
     deleteProjectButton.disabled = true;
+    mobileProjectSelect.disabled = true;
+    mobileProjectSelect.innerHTML = `<option>No projects</option>`;
     return;
   }
 
@@ -348,6 +353,11 @@ function renderProjects() {
 
   newTaskButton.disabled = false;
   deleteProjectButton.disabled = false;
+  mobileProjectSelect.disabled = false;
+  mobileProjectSelect.innerHTML = state.projects
+    .map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`)
+    .join("");
+  mobileProjectSelect.value = state.selectedProjectId;
   projectList.innerHTML = state.projects
     .map((project) => {
       const count = state.tasks.filter((task) => task.projectId === project.id).length;
@@ -379,6 +389,7 @@ function renderBoard() {
   activeTasks.textContent = projectTasks.filter((task) => task.status !== "done").length;
   doneTasks.textContent = projectTasks.filter((task) => task.status === "done").length;
   unassignedTasks.textContent = projectTasks.filter((task) => !task.assigneeId).length;
+  renderStatusTabs(projectTasks);
 
   if (!selectedProject) {
     board.innerHTML = `<div class="empty-board">Create a project first, then add tasks and assign them to your team.</div>`;
@@ -388,8 +399,10 @@ function renderBoard() {
   board.innerHTML = statuses
     .map((status) => {
       const tasks = visibleTasks.filter((task) => task.status === status.id);
+      const mobileVisibleClass =
+        activeMobileStatus === "all" || activeMobileStatus === status.id ? " is-mobile-visible" : "";
       return `
-        <section class="column" aria-label="${status.label}">
+        <section class="column${mobileVisibleClass}" aria-label="${status.label}" data-column-status="${status.id}">
           <div class="column-header">
             <strong>${status.label}</strong>
             <span>${tasks.length}</span>
@@ -401,6 +414,30 @@ function renderBoard() {
       `;
     })
     .join("");
+}
+
+function renderStatusTabs(projectTasks) {
+  const allActive = activeMobileStatus === "all" ? " is-active" : "";
+  const statusButtons = statuses
+    .map((status) => {
+      const count = projectTasks.filter((task) => task.status === status.id).length;
+      const activeClass = activeMobileStatus === status.id ? " is-active" : "";
+      return `
+        <button class="status-tab${activeClass}" type="button" data-mobile-status="${status.id}" role="tab" aria-selected="${activeMobileStatus === status.id}">
+          <span>${status.label}</span>
+          <strong>${count}</strong>
+        </button>
+      `;
+    })
+    .join("");
+
+  statusTabs.innerHTML = `
+    <button class="status-tab${allActive}" type="button" data-mobile-status="all" role="tab" aria-selected="${activeMobileStatus === "all"}">
+      <span>All</span>
+      <strong>${projectTasks.length}</strong>
+    </button>
+    ${statusButtons}
+  `;
 }
 
 function renderTaskCard(task) {
@@ -759,6 +796,19 @@ projectList.addEventListener("click", (event) => {
   state.selectedProjectId = button.dataset.projectId;
   saveState();
   render();
+});
+
+mobileProjectSelect.addEventListener("change", (event) => {
+  state.selectedProjectId = event.target.value;
+  saveState();
+  render();
+});
+
+statusTabs.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-mobile-status]");
+  if (!button) return;
+  activeMobileStatus = button.dataset.mobileStatus;
+  renderBoard();
 });
 
 board.addEventListener("click", (event) => {

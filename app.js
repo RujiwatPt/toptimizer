@@ -55,7 +55,6 @@ const projectList = document.querySelector("#projectList");
 const memberList = document.querySelector("#memberList");
 const memberCount = document.querySelector("#memberCount");
 const projectTitle = document.querySelector("#projectTitle");
-const storageBadge = document.querySelector("#storageBadge");
 const mobileProjectSelect = document.querySelector("#mobileProjectSelect");
 const statusTabs = document.querySelector("#statusTabs");
 const board = document.querySelector("#board");
@@ -120,7 +119,7 @@ function setupSupabase() {
 }
 
 function updateStorageBadge() {
-  storageBadge.textContent = isSharedMode ? "Shared Supabase workspace" : "Local browser mode";
+  document.body.dataset.storageMode = isSharedMode ? "shared" : "local";
 }
 
 function loadLocalState() {

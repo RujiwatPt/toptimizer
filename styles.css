@@ -98,18 +98,6 @@ button {
   text-transform: uppercase;
 }
 
-.storage-badge {
-  width: max-content;
-  margin: 10px 0 0;
-  border: 1px solid var(--line);
-  background: rgba(255, 250, 240, 0.76);
-  padding: 4px 8px;
-  color: var(--muted);
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 800;
-}
-
 .panel {
   display: grid;
   gap: 12px;
@@ -294,15 +282,16 @@ button:hover {
 }
 
 .topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(520px, 1.45fr);
   align-items: end;
-  justify-content: space-between;
-  gap: 20px;
+  gap: 24px;
 }
 
 .topbar-actions {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 220px) auto auto;
+  align-items: end;
   gap: 12px;
 }
 
@@ -333,7 +322,6 @@ button:hover {
 }
 
 .search {
-  min-width: min(320px, 42vw);
   min-height: 42px;
   display: flex;
   align-items: center;
@@ -656,15 +644,11 @@ dialog::backdrop {
 
   .topbar {
     align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .topbar-actions {
-    flex-wrap: wrap;
-  }
-
-  .search {
-    min-width: 100%;
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 220px) auto auto;
   }
 }
 
@@ -702,10 +686,6 @@ dialog::backdrop {
 
   .workspace {
     gap: 16px;
-  }
-
-  .storage-badge {
-    width: 100%;
   }
 
   .mobile-controls {
@@ -795,12 +775,9 @@ dialog::backdrop {
   }
 
   .topbar-actions {
-    align-items: stretch;
-  }
-
-  .topbar-actions {
     display: grid;
     grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .comment-author-control {

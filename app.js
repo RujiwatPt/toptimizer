@@ -675,7 +675,7 @@ function renderComments(task = getCurrentDialogTask()) {
                 .join("")}
             </div>
             <div class="reply-composer">
-              <textarea rows="2" maxlength="320" placeholder="Reply"></textarea>
+              <textarea rows="4" maxlength="1200" placeholder="Reply"></textarea>
               <button type="button" class="ghost-button" data-reply-button>Reply</button>
             </div>
           </article>

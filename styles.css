@@ -608,6 +608,14 @@ dialog::backdrop {
   gap: 8px;
 }
 
+.comment-composer textarea {
+  min-height: 150px;
+}
+
+.reply-composer textarea {
+  min-height: 92px;
+}
+
 .reply-composer {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;

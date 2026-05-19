@@ -46,6 +46,10 @@
               <span aria-hidden="true">⌕</span>
               <input id="searchInput" type="search" placeholder="Search tasks" autocomplete="off" />
             </label>
+            <label class="comment-author-control">
+              Comment as
+              <select id="commentAuthorSelect"></select>
+            </label>
             <button class="ghost-button" id="deleteProjectButton" type="button">Delete project</button>
             <button class="primary-button" id="newTaskButton" type="button">New task</button>
           </div>
@@ -148,10 +152,6 @@
           </div>
           <div class="comment-list" id="commentList"></div>
           <div class="comment-composer">
-            <label>
-              Comment as
-              <select id="commentAuthorSelect"></select>
-            </label>
             <textarea id="commentInput" rows="3" maxlength="420" placeholder="Add a comment"></textarea>
             <button type="button" class="ghost-button" id="addCommentButton">Comment</button>
           </div>

@@ -306,6 +306,28 @@ button:hover {
   gap: 12px;
 }
 
+.comment-author-control {
+  min-width: 190px;
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.comment-author-control select {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(255, 250, 240, 0.8);
+  color: var(--ink);
+  padding: 0 10px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  text-transform: none;
+}
+
 .mobile-controls {
   display: none;
 }
@@ -598,15 +620,6 @@ dialog::backdrop {
   gap: 8px;
 }
 
-.comment-composer label {
-  display: grid;
-  gap: 7px;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
 .reply-composer {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
@@ -788,6 +801,10 @@ dialog::backdrop {
   .topbar-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .comment-author-control {
+    min-width: 0;
   }
 
   .primary-button,

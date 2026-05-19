@@ -541,6 +541,10 @@ dialog::backdrop {
   resize: vertical;
 }
 
+#taskForm textarea[name="description"] {
+  min-height: 170px;
+}
+
 .comments-panel {
   display: grid;
   gap: 12px;

@@ -6,7 +6,7 @@ A simplified Linear-style task manager for a 25-person team. It can run locally 
 
 - Create projects when needed
 - Add, edit, delete, and search tasks
-- Comment on tasks and reply to comments
+- Comment on tasks and reply to comments with a locally remembered commenter name
 - Assign tasks to the seeded 25-person team
 - Track task status across Backlog, Todo, In Progress, Review, and Done
 - Drag tasks between columns to update status
@@ -41,3 +41,5 @@ node scripts/generate-config.js
 6. Deploy the static files to GitHub Pages.
 
 This setup intentionally has no login. Anyone who can open the app URL can edit the shared workspace.
+
+If you already created the tables before commenter names were added, run `supabase-schema.sql` again. It includes `alter table ... add column if not exists` statements for the comment author fields.

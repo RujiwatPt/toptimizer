@@ -22,9 +22,14 @@ create table if not exists public.comments (
   id text primary key,
   task_id text not null references public.tasks(id) on delete cascade,
   parent_id text references public.comments(id) on delete cascade,
+  author_id text,
+  author_name text not null default 'Unknown',
   body text not null,
   created_at timestamptz not null default now()
 );
+
+alter table public.comments add column if not exists author_id text;
+alter table public.comments add column if not exists author_name text not null default 'Unknown';
 
 alter table public.projects enable row level security;
 alter table public.tasks enable row level security;

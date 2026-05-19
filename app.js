@@ -36,6 +36,7 @@ const statuses = [
 
 const storageKey = "toptimizer-task-manager-v1";
 const selectedProjectKey = "toptimizer-selected-project";
+const commentAuthorKey = "toptimizer-comment-author";
 
 const defaultState = {
   selectedProjectId: "",
@@ -78,6 +79,7 @@ const taskDialogTitle = document.querySelector("#taskDialogTitle");
 const commentsPanel = document.querySelector("#commentsPanel");
 const commentList = document.querySelector("#commentList");
 const commentInput = document.querySelector("#commentInput");
+const commentAuthorSelect = document.querySelector("#commentAuthorSelect");
 const commentCount = document.querySelector("#commentCount");
 const addCommentButton = document.querySelector("#addCommentButton");
 
@@ -190,6 +192,8 @@ function normalizeState(nextState) {
       comments: Array.isArray(task.comments)
         ? task.comments.map((comment) => ({
             ...comment,
+            authorId: comment.authorId || "",
+            authorName: comment.authorName || "Unknown",
             replies: Array.isArray(comment.replies) ? comment.replies : [],
           }))
         : [],
@@ -232,6 +236,8 @@ async function persistComment(taskId, comment, parentId = null) {
     id: comment.id,
     task_id: taskId,
     parent_id: parentId,
+    author_id: comment.authorId || null,
+    author_name: comment.authorName || "Unknown",
     body: comment.body,
     created_at: comment.createdAt,
   });
@@ -296,6 +302,8 @@ function mapTaskToRow(task) {
 function mapCommentFromRow(row) {
   return {
     id: row.id,
+    authorId: row.author_id || "",
+    authorName: row.author_name || "Unknown",
     body: row.body,
     createdAt: row.created_at,
     replies: [],
@@ -333,6 +341,18 @@ function renderPeople() {
       `,
     )
     .join("");
+  renderCommentAuthorOptions();
+}
+
+function renderCommentAuthorOptions() {
+  const selectedAuthorId = localStorage.getItem(commentAuthorKey) || people[0]?.id || "";
+  commentAuthorSelect.innerHTML = people
+    .map((person) => `<option value="${person.id}">${escapeHtml(person.name)}</option>`)
+    .join("");
+  commentAuthorSelect.value = people.some((person) => person.id === selectedAuthorId)
+    ? selectedAuthorId
+    : people[0]?.id || "";
+  localStorage.setItem(commentAuthorKey, commentAuthorSelect.value);
 }
 
 function renderProjects() {
@@ -636,6 +656,7 @@ function renderComments(task = getCurrentDialogTask()) {
         (comment) => `
           <article class="comment" data-comment-id="${comment.id}">
             <div class="comment-body">
+              <strong>${escapeHtml(comment.authorName || getPerson(comment.authorId)?.name || "Unknown")}</strong>
               <p>${escapeHtml(comment.body)}</p>
               <time>${formatDateTime(comment.createdAt)}</time>
             </div>
@@ -645,6 +666,7 @@ function renderComments(task = getCurrentDialogTask()) {
                   (reply) => `
                     <div class="comment reply">
                       <div class="comment-body">
+                        <strong>${escapeHtml(reply.authorName || getPerson(reply.authorId)?.name || "Unknown")}</strong>
                         <p>${escapeHtml(reply.body)}</p>
                         <time>${formatDateTime(reply.createdAt)}</time>
                       </div>
@@ -667,9 +689,12 @@ async function addComment() {
   const body = commentInput.value.trim();
   const task = getCurrentDialogTask();
   if (!task || !body) return;
+  const author = getCommentAuthor();
 
   const comment = {
     id: makeId("comment"),
+    authorId: author.id,
+    authorName: author.name,
     body,
     createdAt: new Date().toISOString(),
     replies: [],
@@ -694,9 +719,12 @@ async function addComment() {
 async function addReply(commentId, body) {
   const task = getCurrentDialogTask();
   if (!task || !body) return;
+  const author = getCommentAuthor();
 
   const reply = {
     id: makeId("reply"),
+    authorId: author.id,
+    authorName: author.name,
     body,
     createdAt: new Date().toISOString(),
   };
@@ -722,6 +750,12 @@ async function addReply(commentId, body) {
   } catch (error) {
     showStorageError(error, "Reply was saved locally, but not to Supabase.");
   }
+}
+
+function getCommentAuthor() {
+  const author = getPerson(commentAuthorSelect.value) || people[0];
+  localStorage.setItem(commentAuthorKey, author.id);
+  return author;
 }
 
 function setBusy(isBusy) {
@@ -784,6 +818,9 @@ newTaskButton.addEventListener("click", () => openTaskDialog());
 deleteProjectButton.addEventListener("click", deleteSelectedProject);
 searchInput.addEventListener("input", renderBoard);
 addCommentButton.addEventListener("click", addComment);
+commentAuthorSelect.addEventListener("change", () => {
+  localStorage.setItem(commentAuthorKey, commentAuthorSelect.value);
+});
 commentInput.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
     addComment();

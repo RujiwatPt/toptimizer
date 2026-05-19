@@ -31,6 +31,8 @@ create table if not exists public.comments (
 alter table public.comments add column if not exists author_id text;
 alter table public.comments add column if not exists author_name text not null default 'Unknown';
 
+update public.tasks set status = 'todo' where status = 'backlog';
+
 alter table public.projects enable row level security;
 alter table public.tasks enable row level security;
 alter table public.comments enable row level security;

@@ -27,7 +27,6 @@ const people = [
 ];
 
 const statuses = [
-  { id: "backlog", label: "Backlog" },
   { id: "todo", label: "Todo" },
   { id: "in-progress", label: "In Progress" },
   { id: "review", label: "Review" },
@@ -149,6 +148,7 @@ async function loadSharedState() {
   }
 
   const commentsByTask = buildCommentsByTask(comments || []);
+  await migrateBacklogTasksToTodo(tasks || []);
   state = normalizeState({
     selectedProjectId: localStorage.getItem(selectedProjectKey) || "",
     projects: (projects || []).map(mapProjectFromRow),
@@ -188,6 +188,7 @@ function normalizeState(nextState) {
     ...nextState,
     tasks: nextState.tasks.map((task) => ({
       ...task,
+      status: normalizeTaskStatus(task.status),
       comments: Array.isArray(task.comments)
         ? task.comments.map((comment) => ({
             ...comment,
@@ -198,6 +199,22 @@ function normalizeState(nextState) {
         : [],
     })),
   };
+}
+
+function normalizeTaskStatus(status) {
+  return status === "backlog" ? "todo" : status;
+}
+
+async function migrateBacklogTasksToTodo(tasks) {
+  if (!isSharedMode) return;
+  const backlogTaskIds = tasks.filter((task) => task.status === "backlog").map((task) => task.id);
+  if (backlogTaskIds.length === 0) return;
+
+  const { error } = await supabaseClient
+    .from("tasks")
+    .update({ status: "todo", updated_at: new Date().toISOString() })
+    .in("id", backlogTaskIds);
+  if (error) throw error;
 }
 
 function saveState() {
@@ -275,7 +292,7 @@ function mapTaskFromRow(row) {
     description: row.description || "",
     assigneeId: row.assignee_id || "",
     priority: row.priority,
-    status: row.status,
+    status: normalizeTaskStatus(row.status),
     dueDate: row.due_date || "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -291,7 +308,7 @@ function mapTaskToRow(task) {
     description: task.description || "",
     assignee_id: task.assigneeId || null,
     priority: task.priority,
-    status: task.status,
+    status: normalizeTaskStatus(task.status),
     due_date: task.dueDate || null,
     created_at: task.createdAt,
     updated_at: task.updatedAt,

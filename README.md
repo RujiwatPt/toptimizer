@@ -8,7 +8,7 @@ A simplified Linear-style task manager for a 25-person team. It can run locally 
 - Add, edit, delete, and search tasks
 - Comment on tasks and reply to comments with a locally remembered commenter name
 - Assign tasks to the seeded 25-person team
-- Track task status across Backlog, Todo, In Progress, Review, and Done
+- Track task status across Todo, In Progress, Review, and Done
 - Drag tasks between columns to update status
 - Delete projects and their tasks
 - Store data in Supabase when configured

@@ -375,15 +375,19 @@ button:hover {
 
 .board {
   min-height: 0;
+  width: 100%;
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  overflow: visible;
+  gap: 18px;
+  overflow: hidden;
   padding-bottom: 8px;
 }
 
 .column {
+  width: 100%;
   min-width: 0;
+  overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(120px, 1fr);
   gap: 10px;
@@ -406,8 +410,11 @@ button:hover {
 }
 
 .task-list {
+  width: 100%;
+  min-width: 0;
   min-height: 118px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 10px;
   border: 1px solid transparent;
@@ -446,9 +453,11 @@ button:hover {
 
 .task-card h3 {
   margin: 0;
+  min-width: 0;
   font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 15px;
   line-height: 1.22;
+  overflow-wrap: anywhere;
 }
 
 .task-card p {
@@ -464,12 +473,24 @@ button:hover {
 }
 
 .task-meta {
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
+}
+
+.task-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-meta span:last-child {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .priority {

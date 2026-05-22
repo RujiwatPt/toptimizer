@@ -428,6 +428,9 @@ button:hover {
   box-shadow: 4px 4px 0 rgba(32, 33, 30, 0.85);
   display: grid;
   gap: 10px;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
   user-select: none;
 }
 
@@ -451,8 +454,13 @@ button:hover {
 .task-card p {
   margin: 0;
   color: var(--muted);
+  display: -webkit-box;
   font-size: 13px;
   line-height: 1.35;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .task-meta {

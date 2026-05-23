@@ -4,20 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Toptimizer Tasks</title>
-    <link rel="stylesheet" href="styles.css?v=layout-fix-1" />
+    <link rel="stylesheet" href="styles.css?v=calendar-10" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar" aria-label="Workspace">
         <div class="brand">
           <span class="brand-mark">T</span>
-          <div>
+          <div class="topbar-title">
             <p class="eyebrow">Workspace</p>
             <h1>Toptimizer</h1>
           </div>
         </div>
 
-        <section class="panel">
+        <section class="panel" id="projectPanel">
           <div class="section-heading">
             <h2>Projects</h2>
             <button class="icon-button" id="newProjectButton" type="button" aria-label="Create project" title="Create project">+</button>
@@ -37,8 +37,12 @@
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Project task manager</p>
+            <p class="eyebrow" id="workspaceEyebrow">Project task manager</p>
             <h2 id="projectTitle">Create a project</h2>
+          </div>
+          <div class="view-tabs" role="tablist" aria-label="Workspace views">
+            <button class="view-tab is-active" id="tasksViewButton" type="button" data-view="tasks" role="tab" aria-selected="true">Tasks</button>
+            <button class="view-tab" id="calendarViewButton" type="button" data-view="calendar" role="tab" aria-selected="false">Calendar</button>
           </div>
           <div class="topbar-actions">
             <label class="search">
@@ -54,34 +58,63 @@
           </div>
         </header>
 
-        <section class="mobile-controls" aria-label="Mobile task controls">
-          <label>
-            Project
-            <select id="mobileProjectSelect"></select>
-          </label>
-          <div class="status-tabs" id="statusTabs" role="tablist" aria-label="Task statuses"></div>
-        </section>
+        <div class="task-view" id="taskView">
+          <section class="mobile-controls" aria-label="Mobile task controls">
+            <label>
+              Project
+              <select id="mobileProjectSelect"></select>
+            </label>
+            <div class="status-tabs" id="statusTabs" role="tablist" aria-label="Task statuses"></div>
+          </section>
 
-        <section class="stats-strip" aria-label="Task summary">
-          <div>
-            <span id="totalTasks">0</span>
-            <p>Total</p>
-          </div>
-          <div>
-            <span id="activeTasks">0</span>
-            <p>Active</p>
-          </div>
-          <div>
-            <span id="doneTasks">0</span>
-            <p>Done</p>
-          </div>
-          <div>
-            <span id="unassignedTasks">0</span>
-            <p>Unassigned</p>
-          </div>
-        </section>
+          <section class="stats-strip" aria-label="Task summary">
+            <div>
+              <span id="totalTasks">0</span>
+              <p>Total</p>
+            </div>
+            <div>
+              <span id="activeTasks">0</span>
+              <p>Active</p>
+            </div>
+            <div>
+              <span id="doneTasks">0</span>
+              <p>Done</p>
+            </div>
+            <div>
+              <span id="unassignedTasks">0</span>
+              <p>Unassigned</p>
+            </div>
+          </section>
 
-        <section class="board" id="board" aria-label="Task board"></section>
+          <section class="board" id="board" aria-label="Task board"></section>
+        </div>
+
+        <section class="calendar-view" id="calendarView" aria-label="Calendar" hidden>
+          <div class="calendar-toolbar">
+            <div class="calendar-nav">
+              <button class="icon-button" id="previousMonthButton" type="button" aria-label="Previous month" title="Previous month">&lsaquo;</button>
+              <button class="ghost-button" id="todayButton" type="button">Today</button>
+              <button class="icon-button" id="nextMonthButton" type="button" aria-label="Next month" title="Next month">&rsaquo;</button>
+            </div>
+            <div>
+              <p class="eyebrow">Calendar</p>
+              <h3 id="calendarMonthLabel">Month</h3>
+            </div>
+            <div class="calendar-actions">
+              <button class="primary-button" id="newEventButton" type="button">New event</button>
+            </div>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>Sun</span>
+            <span>Mon</span>
+            <span>Tue</span>
+            <span>Wed</span>
+            <span>Thu</span>
+            <span>Fri</span>
+            <span>Sat</span>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </section>
       </main>
     </div>
 
@@ -163,8 +196,54 @@
       </form>
     </dialog>
 
+    <dialog id="eventDialog">
+      <form method="dialog" class="dialog-form" id="eventForm">
+        <div>
+          <p class="eyebrow" id="eventDialogMode">New event</p>
+          <h2 id="eventDialogTitle">Calendar event</h2>
+        </div>
+        <input type="hidden" name="eventId" />
+        <label>
+          Title
+          <input name="title" required maxlength="90" placeholder="Review content plan" />
+        </label>
+        <div class="attendee-picker">
+          <div class="attendee-select-control">
+            <span>Invitees</span>
+            <button class="attendee-menu-button" id="eventUserSelect" type="button">Add invitee</button>
+          </div>
+          <div class="attendee-menu" id="eventAttendeeMenu" hidden></div>
+          <div class="attendee-list" id="eventAttendeeList"></div>
+          <div id="eventAttendeeInputs"></div>
+        </div>
+        <div class="form-grid">
+          <label>
+            Date
+            <input name="date" type="date" required />
+          </label>
+          <label>
+            Start time
+            <input name="startTime" type="time" value="09:00" />
+          </label>
+          <label>
+            End time
+            <input name="endTime" type="time" value="10:00" />
+          </label>
+        </div>
+        <label>
+          Notes
+          <textarea name="description" rows="4" maxlength="900" placeholder="Agenda, location, or context"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="danger-button" id="deleteEventButton">Delete</button>
+          <button type="button" class="ghost-button" data-close>Cancel</button>
+          <button type="submit" class="primary-button">Save</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="app.js?v=layout-fix-1"></script>
+    <script src="app.js?v=calendar-10"></script>
   </body>
 </html>

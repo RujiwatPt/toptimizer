@@ -28,6 +28,19 @@ create table if not exists public.comments (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.calendar_events (
+  id text primary key,
+  title text not null,
+  description text not null default '',
+  user_id text,
+  attendee_ids text[] not null default '{}',
+  date date not null,
+  start_time time,
+  end_time time,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.comments add column if not exists author_id text;
 alter table public.comments add column if not exists author_name text not null default 'Unknown';
 
@@ -36,15 +49,18 @@ update public.tasks set status = 'todo' where status = 'backlog';
 alter table public.projects enable row level security;
 alter table public.tasks enable row level security;
 alter table public.comments enable row level security;
+alter table public.calendar_events enable row level security;
 
 grant usage on schema public to anon;
 grant select, insert, update, delete on public.projects to anon;
 grant select, insert, update, delete on public.tasks to anon;
 grant select, insert, update, delete on public.comments to anon;
+grant select, insert, update, delete on public.calendar_events to anon;
 
 drop policy if exists "public projects access" on public.projects;
 drop policy if exists "public tasks access" on public.tasks;
 drop policy if exists "public comments access" on public.comments;
+drop policy if exists "public calendar events access" on public.calendar_events;
 
 create policy "public projects access"
 on public.projects
@@ -62,6 +78,13 @@ with check (true);
 
 create policy "public comments access"
 on public.comments
+for all
+to anon
+using (true)
+with check (true);
+
+create policy "public calendar events access"
+on public.calendar_events
 for all
 to anon
 using (true)

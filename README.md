@@ -10,6 +10,8 @@ A simplified Linear-style task manager for a 25-person team. It can run locally 
 - Assign tasks to the seeded 25-person team
 - Track task status across Todo, In Progress, Review, and Done
 - Drag tasks between columns to update status
+- Switch to a Google Calendar-style month tab
+- Create, edit, delete, and filter synced calendar events by the same team users used for comments
 - Delete projects and their tasks
 - Store data in Supabase when configured
 - Fall back to local browser storage when Supabase is not configured
@@ -42,4 +44,20 @@ node scripts/generate-config.js
 
 This setup intentionally has no login. Anyone who can open the app URL can edit the shared workspace.
 
-If you already created the tables before commenter names were added, run `supabase-schema.sql` again. It includes `alter table ... add column if not exists` statements for the comment author fields.
+## Production Migrations
+
+For an existing Supabase project, do not rerun the full bootstrap schema against production. Apply only the additive migration that matches the feature:
+
+```sql
+-- Run in the Supabase SQL editor
+migrations/20260523140000_add_calendar_events.sql
+```
+
+This creates the `calendar_events` table and its public anon policy without changing existing project, task, or comment data.
+
+Calendar events can invite multiple people. If the `calendar_events` table already exists, apply the attendee migration after the table migration:
+
+```sql
+-- Run in the Supabase SQL editor
+migrations/20260523141000_add_calendar_event_attendees.sql
+```

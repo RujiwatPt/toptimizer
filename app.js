@@ -36,27 +36,37 @@ const statuses = [
 const storageKey = "toptimizer-task-manager-v1";
 const selectedProjectKey = "toptimizer-selected-project";
 const commentAuthorKey = "toptimizer-comment-author";
+const activeViewKey = "toptimizer-active-view";
 
 const defaultState = {
   selectedProjectId: "",
   projects: [],
   tasks: [],
+  calendarEvents: [],
 };
 
 let state = { ...defaultState };
 let draggedTaskId = "";
 let suppressTaskClickUntil = 0;
 let activeMobileStatus = "all";
+let activeView = localStorage.getItem(activeViewKey) === "calendar" ? "calendar" : "tasks";
+let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let supabaseClient = null;
 let isSharedMode = false;
 
 const projectList = document.querySelector("#projectList");
+const projectPanel = document.querySelector("#projectPanel");
 const memberList = document.querySelector("#memberList");
 const memberCount = document.querySelector("#memberCount");
+const workspaceEyebrow = document.querySelector("#workspaceEyebrow");
 const projectTitle = document.querySelector("#projectTitle");
 const mobileProjectSelect = document.querySelector("#mobileProjectSelect");
 const statusTabs = document.querySelector("#statusTabs");
 const board = document.querySelector("#board");
+const taskView = document.querySelector("#taskView");
+const calendarView = document.querySelector("#calendarView");
+const tasksViewButton = document.querySelector("#tasksViewButton");
+const calendarViewButton = document.querySelector("#calendarViewButton");
 const totalTasks = document.querySelector("#totalTasks");
 const activeTasks = document.querySelector("#activeTasks");
 const doneTasks = document.querySelector("#doneTasks");
@@ -80,6 +90,22 @@ const commentInput = document.querySelector("#commentInput");
 const commentAuthorSelect = document.querySelector("#commentAuthorSelect");
 const commentCount = document.querySelector("#commentCount");
 const addCommentButton = document.querySelector("#addCommentButton");
+const calendarMonthLabel = document.querySelector("#calendarMonthLabel");
+const calendarGrid = document.querySelector("#calendarGrid");
+const previousMonthButton = document.querySelector("#previousMonthButton");
+const nextMonthButton = document.querySelector("#nextMonthButton");
+const todayButton = document.querySelector("#todayButton");
+const newEventButton = document.querySelector("#newEventButton");
+const eventDialog = document.querySelector("#eventDialog");
+const eventForm = document.querySelector("#eventForm");
+const eventDialogMode = document.querySelector("#eventDialogMode");
+const eventDialogTitle = document.querySelector("#eventDialogTitle");
+const eventUserSelect = document.querySelector("#eventUserSelect");
+const eventAttendeeMenu = document.querySelector("#eventAttendeeMenu");
+const eventAttendeeList = document.querySelector("#eventAttendeeList");
+const eventAttendeeInputs = document.querySelector("#eventAttendeeInputs");
+const deleteEventButton = document.querySelector("#deleteEventButton");
+let selectedEventAttendeeIds = [];
 
 async function init() {
   state = loadLocalState();
@@ -136,15 +162,21 @@ function loadLocalState() {
 }
 
 async function loadSharedState() {
-  const [{ data: projects, error: projectsError }, { data: tasks, error: tasksError }, { data: comments, error: commentsError }] =
+  const [
+    { data: projects, error: projectsError },
+    { data: tasks, error: tasksError },
+    { data: comments, error: commentsError },
+    { data: calendarEvents, error: calendarEventsError },
+  ] =
     await Promise.all([
       supabaseClient.from("projects").select("*").order("created_at", { ascending: false }),
       supabaseClient.from("tasks").select("*").order("created_at", { ascending: false }),
       supabaseClient.from("comments").select("*").order("created_at", { ascending: true }),
+      supabaseClient.from("calendar_events").select("*").order("date", { ascending: true }),
     ]);
 
-  if (projectsError || tasksError || commentsError) {
-    throw projectsError || tasksError || commentsError;
+  if (projectsError || tasksError || commentsError || calendarEventsError) {
+    throw projectsError || tasksError || commentsError || calendarEventsError;
   }
 
   const commentsByTask = buildCommentsByTask(comments || []);
@@ -156,6 +188,7 @@ async function loadSharedState() {
       ...mapTaskFromRow(task),
       comments: commentsByTask.get(task.id) || [],
     })),
+    calendarEvents: (calendarEvents || []).map(mapCalendarEventFromRow),
   });
 }
 
@@ -198,11 +231,28 @@ function normalizeState(nextState) {
           }))
         : [],
     })),
+    calendarEvents: Array.isArray(nextState.calendarEvents)
+      ? nextState.calendarEvents.map((event) => ({
+          ...event,
+          userId: event.userId || "",
+          attendeeIds: normalizeCalendarAttendees(event),
+          date: event.date || toDateInputValue(new Date()),
+          startTime: event.startTime || "",
+          endTime: event.endTime || "",
+          description: event.description || "",
+        }))
+      : [],
   };
 }
 
 function normalizeTaskStatus(status) {
   return status === "backlog" ? "todo" : status;
+}
+
+function normalizeCalendarAttendees(event) {
+  const attendeeIds = Array.isArray(event.attendeeIds) ? event.attendeeIds.filter(Boolean) : [];
+  const legacyUserId = event.userId ? [event.userId] : [];
+  return [...new Set([...attendeeIds, ...legacyUserId])];
 }
 
 async function migrateBacklogTasksToTodo(tasks) {
@@ -257,6 +307,18 @@ async function persistComment(taskId, comment, parentId = null) {
     body: comment.body,
     created_at: comment.createdAt,
   });
+  if (error) throw error;
+}
+
+async function persistCalendarEvent(event) {
+  if (!isSharedMode) return;
+  const { error } = await supabaseClient.from("calendar_events").upsert(mapCalendarEventToRow(event));
+  if (error) throw error;
+}
+
+async function removeCalendarEvent(eventId) {
+  if (!isSharedMode) return;
+  const { error } = await supabaseClient.from("calendar_events").delete().eq("id", eventId);
   if (error) throw error;
 }
 
@@ -326,6 +388,37 @@ function mapCommentFromRow(row) {
   };
 }
 
+function mapCalendarEventFromRow(row) {
+  const attendeeIds = Array.isArray(row.attendee_ids) ? row.attendee_ids : [];
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description || "",
+    userId: row.user_id || "",
+    attendeeIds: [...new Set([...attendeeIds, row.user_id].filter(Boolean))],
+    date: row.date,
+    startTime: row.start_time || "",
+    endTime: row.end_time || "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapCalendarEventToRow(event) {
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description || "",
+    user_id: event.attendeeIds?.[0] || event.userId || null,
+    attendee_ids: normalizeCalendarAttendees(event),
+    date: event.date,
+    start_time: event.startTime || null,
+    end_time: event.endTime || null,
+    created_at: event.createdAt,
+    updated_at: event.updatedAt,
+  };
+}
+
 function makeId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -343,6 +436,8 @@ function render() {
   renderPeople();
   renderProjects();
   renderBoard();
+  renderActiveView();
+  renderCalendar();
 }
 
 function renderPeople() {
@@ -371,10 +466,28 @@ function renderCommentAuthorOptions() {
   localStorage.setItem(commentAuthorKey, commentAuthorSelect.value);
 }
 
+function renderActiveView() {
+  const isCalendar = activeView === "calendar";
+  document.body.dataset.activeView = activeView;
+  projectPanel.hidden = isCalendar;
+  taskView.hidden = isCalendar;
+  calendarView.hidden = !isCalendar;
+  workspaceEyebrow.textContent = isCalendar ? "Team calendar" : "Project task manager";
+  projectTitle.textContent = isCalendar ? "Calendar" : getSelectedProject()?.name || "Create a project";
+  tasksViewButton.classList.toggle("is-active", !isCalendar);
+  calendarViewButton.classList.toggle("is-active", isCalendar);
+  tasksViewButton.setAttribute("aria-selected", String(!isCalendar));
+  calendarViewButton.setAttribute("aria-selected", String(isCalendar));
+  searchInput.closest(".search").hidden = isCalendar;
+  newTaskButton.hidden = isCalendar;
+  deleteProjectButton.hidden = isCalendar;
+  newEventButton.hidden = !isCalendar;
+}
+
 function renderProjects() {
   if (state.projects.length === 0) {
     projectList.innerHTML = `<div class="empty-projects">No projects yet. Create one when you are ready.</div>`;
-    projectTitle.textContent = "Create a project";
+    if (activeView !== "calendar") projectTitle.textContent = "Create a project";
     newTaskButton.disabled = true;
     deleteProjectButton.disabled = true;
     mobileProjectSelect.disabled = true;
@@ -408,7 +521,9 @@ function renderProjects() {
     .join("");
 
   const selectedProject = getSelectedProject();
-  projectTitle.textContent = selectedProject ? selectedProject.name : "Create a project";
+  if (activeView !== "calendar") {
+    projectTitle.textContent = selectedProject ? selectedProject.name : "Create a project";
+  }
 }
 
 function renderBoard() {
@@ -450,6 +565,73 @@ function renderBoard() {
       `;
     })
     .join("");
+}
+
+function renderCalendar() {
+  const year = calendarCursor.getFullYear();
+  const month = calendarCursor.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const firstGridDate = new Date(year, month, 1 - firstOfMonth.getDay());
+  const todayValue = toDateInputValue(new Date());
+  const selectedUserId = commentAuthorSelect.value || people[0]?.id || "";
+  const visibleEvents = state.calendarEvents
+    .filter((event) => getCalendarAttendeeIds(event).includes(selectedUserId))
+    .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
+  const eventsByDate = visibleEvents.reduce((map, event) => {
+    map.set(event.date, [...(map.get(event.date) || []), event]);
+    return map;
+  }, new Map());
+
+  calendarMonthLabel.textContent = new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+  }).format(calendarCursor);
+
+  calendarGrid.innerHTML = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(firstGridDate);
+    date.setDate(firstGridDate.getDate() + index);
+    const dateValue = toDateInputValue(date);
+    const dayEvents = eventsByDate.get(dateValue) || [];
+    const mutedClass = date.getMonth() === month ? "" : " is-muted";
+    const todayClass = dateValue === todayValue ? " is-today" : "";
+    const emptyClass = dayEvents.length === 0 ? " is-empty" : "";
+    const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(date);
+    return `
+      <section class="calendar-day${mutedClass}${todayClass}${emptyClass}" data-calendar-date="${dateValue}">
+        <button class="calendar-day-number" type="button" data-new-event-date="${dateValue}" aria-label="Create event on ${formatFullDate(dateValue)}">
+          <span class="calendar-day-name">${weekday}</span>
+          ${date.getDate()}
+        </button>
+        <div class="calendar-events">
+          ${
+            dayEvents
+              .map((event) => {
+                const attendeeNames = getCalendarAttendeeNames(event);
+                return `
+                  <button class="calendar-event" type="button" data-event-id="${event.id}">
+                    <strong>${escapeHtml(event.title)}</strong>
+                    <span>${escapeHtml(formatEventTime(event))}${attendeeNames ? ` &middot; ${escapeHtml(attendeeNames)}` : ""}</span>
+                  </button>
+                `;
+              })
+              .join("") || ""
+          }
+        </div>
+      </section>
+    `;
+  }).join("");
+}
+
+function getCalendarAttendeeIds(event) {
+  return normalizeCalendarAttendees(event);
+}
+
+function getCalendarAttendeeNames(event) {
+  const names = getCalendarAttendeeIds(event)
+    .map((personId) => getPerson(personId)?.name)
+    .filter(Boolean);
+  if (names.length <= 2) return names.join(", ");
+  return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
 }
 
 function renderStatusTabs(projectTasks) {
@@ -610,6 +792,147 @@ async function saveTask(formData) {
     await persistTask(nextTask);
   } catch (error) {
     showStorageError(error, "Task was saved locally, but not to Supabase.");
+  }
+}
+
+function openEventDialog(eventId = "", dateValue = "") {
+  populateEventSelects();
+  const event = state.calendarEvents.find((item) => item.id === eventId);
+  const attendeeIds = event ? getCalendarAttendeeIds(event) : [commentAuthorSelect.value || people[0]?.id].filter(Boolean);
+  selectedEventAttendeeIds = attendeeIds.length === people.length ? ["all"] : attendeeIds;
+  eventForm.reset();
+  eventForm.elements.eventId.value = event ? event.id : "";
+  eventForm.elements.title.value = event ? event.title : "";
+  renderEventAttendeePicker();
+  eventForm.elements.date.value = event ? event.date : dateValue || toDateInputValue(new Date());
+  eventForm.elements.startTime.value = event ? event.startTime : "09:00";
+  eventForm.elements.endTime.value = event ? event.endTime : "10:00";
+  eventForm.elements.description.value = event ? event.description : "";
+  deleteEventButton.hidden = !event;
+  eventDialogMode.textContent = event ? "Edit event" : "New event";
+  eventDialogTitle.textContent = event ? formatFullDate(event.date) : "Calendar event";
+  eventDialog.showModal();
+  eventForm.elements.title.focus();
+}
+
+function populateEventSelects() {
+  eventAttendeeMenu.innerHTML = `<button type="button" data-add-attendee="all">All</button>${people
+    .map((person) => `<button type="button" data-add-attendee="${person.id}">${escapeHtml(person.name)}</button>`)
+    .join("")}`;
+  eventUserSelect.textContent = "Add invitee";
+  eventAttendeeMenu.hidden = true;
+}
+
+function renderEventAttendeePicker() {
+  const isAll = selectedEventAttendeeIds.includes("all");
+  const attendeeIds = getSelectedEventAttendeeIds();
+  eventAttendeeInputs.innerHTML = attendeeIds
+    .map((personId) => `<input type="hidden" name="attendeeIds" value="${escapeHtml(personId)}" />`)
+    .join("");
+
+  if (isAll) {
+    eventAttendeeList.innerHTML = `
+      <span class="attendee-chip">
+        All
+        <button type="button" data-remove-attendee="all" aria-label="Remove All">×</button>
+      </span>
+    `;
+    return;
+  }
+
+  eventAttendeeList.innerHTML =
+    selectedEventAttendeeIds
+      .map((personId) => {
+        const person = getPerson(personId);
+        if (!person) return "";
+        return `
+          <span class="attendee-chip">
+            ${escapeHtml(person.name)}
+            <button type="button" data-remove-attendee="${person.id}" aria-label="Remove ${escapeHtml(person.name)}">×</button>
+          </span>
+        `;
+      })
+      .join("") || `<span class="empty-attendees">No invitees yet</span>`;
+}
+
+function toggleEventAttendeeMenu() {
+  eventAttendeeMenu.hidden = !eventAttendeeMenu.hidden;
+}
+
+function getSelectedEventAttendeeIds() {
+  if (selectedEventAttendeeIds.includes("all")) {
+    return people.map((person) => person.id);
+  }
+  return selectedEventAttendeeIds.filter((personId) => people.some((person) => person.id === personId));
+}
+
+function addEventAttendee(personId) {
+  if (!personId) return;
+  if (personId === "all") {
+    selectedEventAttendeeIds = ["all"];
+  } else if (!selectedEventAttendeeIds.includes("all") && !selectedEventAttendeeIds.includes(personId)) {
+    selectedEventAttendeeIds = [...selectedEventAttendeeIds, personId];
+  }
+  eventAttendeeMenu.hidden = true;
+  renderEventAttendeePicker();
+}
+
+function removeEventAttendee(personId) {
+  selectedEventAttendeeIds = selectedEventAttendeeIds.filter((id) => id !== personId);
+  renderEventAttendeePicker();
+}
+
+async function saveCalendarEvent(formData) {
+  const eventId = formData.get("eventId");
+  const existingEvent = state.calendarEvents.find((event) => event.id === eventId);
+  const attendeeIds = formData.getAll("attendeeIds").filter(Boolean);
+  if (attendeeIds.length === 0) {
+    window.alert("Choose at least one invitee.");
+    return;
+  }
+  const nextEvent = {
+    id: existingEvent ? existingEvent.id : makeId("event"),
+    title: formData.get("title").trim(),
+    description: formData.get("description").trim(),
+    userId: attendeeIds[0] || "",
+    attendeeIds,
+    date: formData.get("date"),
+    startTime: formData.get("startTime"),
+    endTime: formData.get("endTime"),
+    createdAt: existingEvent ? existingEvent.createdAt : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existingEvent) {
+    state.calendarEvents = state.calendarEvents.map((event) =>
+      event.id === existingEvent.id ? nextEvent : event,
+    );
+  } else {
+    state.calendarEvents = [...state.calendarEvents, nextEvent];
+  }
+
+  saveState();
+  renderCalendar();
+
+  try {
+    await persistCalendarEvent(nextEvent);
+  } catch (error) {
+    showStorageError(error, "Event was saved locally, but not to Supabase.");
+  }
+}
+
+async function deleteCurrentEvent() {
+  const eventId = eventForm.elements.eventId.value;
+  if (!eventId) return;
+  state.calendarEvents = state.calendarEvents.filter((event) => event.id !== eventId);
+  saveState();
+  eventDialog.close();
+  renderCalendar();
+
+  try {
+    await removeCalendarEvent(eventId);
+  } catch (error) {
+    showStorageError(error, "Event was removed locally, but not from Supabase.");
   }
 }
 
@@ -775,7 +1098,7 @@ function getCommentAuthor() {
 }
 
 function setBusy(isBusy) {
-  [newProjectButton, newTaskButton, deleteProjectButton, addCommentButton].forEach((button) => {
+  [newProjectButton, newTaskButton, deleteProjectButton, addCommentButton, newEventButton].forEach((button) => {
     button.disabled = isBusy;
   });
 }
@@ -788,6 +1111,30 @@ function showStorageError(error, fallbackMessage) {
 function formatDate(value) {
   const date = new Date(`${value}T00:00:00`);
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(date);
+}
+
+function formatFullDate(value) {
+  const date = new Date(`${value}T00:00:00`);
+  return new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(date);
+}
+
+function formatEventTime(event) {
+  const startTime = formatClockTime(event.startTime);
+  const endTime = formatClockTime(event.endTime);
+  if (startTime && endTime) return `${startTime}-${endTime}`;
+  if (startTime) return startTime;
+  return "All day";
+}
+
+function formatClockTime(value) {
+  return value ? String(value).slice(0, 5) : "";
+}
+
+function toDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formatDateTime(value) {
@@ -831,11 +1178,35 @@ function clearDragState() {
 
 newProjectButton.addEventListener("click", openProjectDialog);
 newTaskButton.addEventListener("click", () => openTaskDialog());
+newEventButton.addEventListener("click", () => openEventDialog());
 deleteProjectButton.addEventListener("click", deleteSelectedProject);
 searchInput.addEventListener("input", renderBoard);
 addCommentButton.addEventListener("click", addComment);
+eventUserSelect.addEventListener("click", toggleEventAttendeeMenu);
+eventAttendeeMenu.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-add-attendee]");
+  if (!button) return;
+  addEventAttendee(button.dataset.addAttendee);
+});
+eventAttendeeList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-attendee]");
+  if (!button) return;
+  removeEventAttendee(button.dataset.removeAttendee);
+});
+tasksViewButton.addEventListener("click", () => {
+  activeView = "tasks";
+  localStorage.setItem(activeViewKey, activeView);
+  renderActiveView();
+});
+calendarViewButton.addEventListener("click", () => {
+  activeView = "calendar";
+  localStorage.setItem(activeViewKey, activeView);
+  renderActiveView();
+  renderCalendar();
+});
 commentAuthorSelect.addEventListener("change", () => {
   localStorage.setItem(commentAuthorKey, commentAuthorSelect.value);
+  renderCalendar();
 });
 commentInput.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -862,6 +1233,34 @@ statusTabs.addEventListener("click", (event) => {
   if (!button) return;
   activeMobileStatus = button.dataset.mobileStatus;
   renderBoard();
+});
+
+previousMonthButton.addEventListener("click", () => {
+  calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1);
+  renderCalendar();
+});
+
+nextMonthButton.addEventListener("click", () => {
+  calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1);
+  renderCalendar();
+});
+
+todayButton.addEventListener("click", () => {
+  calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  renderCalendar();
+});
+
+calendarGrid.addEventListener("click", (event) => {
+  const eventButton = event.target.closest("[data-event-id]");
+  if (eventButton) {
+    openEventDialog(eventButton.dataset.eventId);
+    return;
+  }
+
+  const dateButton = event.target.closest("[data-new-event-date]");
+  if (dateButton) {
+    openEventDialog("", dateButton.dataset.newEventDate);
+  }
 });
 
 board.addEventListener("click", (event) => {
@@ -929,7 +1328,14 @@ taskForm.addEventListener("submit", (event) => {
   taskDialog.close();
 });
 
+eventForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveCalendarEvent(new FormData(eventForm));
+  eventDialog.close();
+});
+
 deleteTaskButton.addEventListener("click", deleteCurrentTask);
+deleteEventButton.addEventListener("click", deleteCurrentEvent);
 
 commentList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-reply-button]");

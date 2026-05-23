@@ -24,6 +24,12 @@ const people = [
   { id: "person-04", name: "ไทม์(Time)" },
   { id: "person-23", name: "วิน(Wind)" },
   { id: "person-22", name: "ยู้(Yuu)" },
+  { id: "person-26", name: "AJ'Art" },
+  { id: "person-27", name: "AJ'Looksorn" },
+  { id: "person-28", name: "AJ'Lee" },
+  { id: "person-29", name: "AJ'Best" },
+  { id: "person-30", name: "AJ'Mon" },
+  { id: "person-31", name: "AJ'Baifern" },
 ];
 
 const statuses = [

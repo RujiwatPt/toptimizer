@@ -295,7 +295,7 @@ button:hover {
 
 .topbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 330px;
   grid-template-areas:
     "title tabs"
     "actions actions";
@@ -321,7 +321,7 @@ button:hover {
   grid-area: tabs;
   min-height: 42px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--ink);
   background: rgba(255, 250, 240, 0.8);
 }
@@ -775,6 +775,260 @@ button:hover {
   font-size: 10px;
 }
 
+/* Budget view */
+.budget-view {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 18px;
+}
+
+.budget-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.budget-filter,
+.budget-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.budget-filter label,
+.budget-sort {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.budget-filter input,
+.budget-sort select {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  background: #fffdf6;
+  color: var(--ink);
+  padding: 0 10px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  text-transform: none;
+}
+
+.budget-filter .ghost-button {
+  align-self: end;
+}
+
+.budget-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.budget-card {
+  min-height: 86px;
+  padding: 16px 18px;
+  border-right: 1px solid var(--line);
+}
+
+.budget-card:last-child {
+  border-right: 0;
+}
+
+.budget-card span {
+  display: block;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.budget-card p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.budget-card.is-income span {
+  color: var(--green);
+}
+
+.budget-card.is-expense span {
+  color: var(--accent);
+}
+
+.budget-net {
+  background: var(--panel-strong);
+}
+
+.budget-net.is-negative span {
+  color: var(--accent-dark);
+}
+
+.budget-list {
+  min-width: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.budget-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1.6fr) minmax(0, 1fr) 120px;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--ink);
+  background: var(--panel);
+  box-shadow: 4px 4px 0 rgba(32, 33, 30, 0.85);
+  padding: 12px 14px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.budget-row[role="button"] {
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.budget-row[role="button"]:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 rgba(32, 33, 30, 0.85);
+}
+
+.budget-row[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.budget-row-head {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 14px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.budget-row-head span:last-child,
+.budget-amount {
+  text-align: right;
+}
+
+.budget-date {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.budget-label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.budget-tag {
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.budget-income .budget-tag {
+  color: var(--green);
+}
+
+.budget-expense .budget-tag {
+  color: var(--accent);
+}
+
+.budget-reference {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.budget-reference a {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
+.budget-reference-empty {
+  color: var(--line);
+}
+
+.budget-amount {
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.budget-income .budget-amount {
+  color: var(--green);
+}
+
+.budget-expense .budget-amount {
+  color: var(--accent);
+}
+
+.budget-type-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.budget-type-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.budget-type-option:has(input:checked) {
+  border-color: var(--ink);
+  background: var(--panel-strong);
+}
+
+.budget-type-option.is-income:has(input:checked) {
+  color: var(--green);
+}
+
+.budget-type-option.is-expense:has(input:checked) {
+  color: var(--accent);
+}
+
+.budget-type-option input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 dialog {
   width: min(620px, calc(100vw - 28px));
   max-height: calc(100dvh - 28px);
@@ -1060,7 +1314,7 @@ body[data-active-view="calendar"] .topbar-actions {
 
 @media (max-width: 1500px) {
   .topbar {
-    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-columns: minmax(0, 1fr) 330px;
     gap: 14px;
   }
 
@@ -1359,6 +1613,58 @@ body[data-active-view="calendar"] .topbar-actions {
 
   .calendar-events {
     align-self: start;
+  }
+
+  .budget-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .budget-filter,
+  .budget-toolbar-actions {
+    justify-content: space-between;
+  }
+
+  .budget-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .budget-card {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .budget-card:last-child {
+    border-bottom: 0;
+  }
+
+  .budget-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "label amount"
+      "date reference";
+    gap: 6px 12px;
+  }
+
+  .budget-row-head {
+    display: none;
+  }
+
+  .budget-label {
+    grid-area: label;
+  }
+
+  .budget-amount {
+    grid-area: amount;
+  }
+
+  .budget-date {
+    grid-area: date;
+  }
+
+  .budget-reference {
+    grid-area: reference;
+    text-align: right;
   }
 
   dialog {

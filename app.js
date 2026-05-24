@@ -44,18 +44,24 @@ const selectedProjectKey = "toptimizer-selected-project";
 const commentAuthorKey = "toptimizer-comment-author";
 const activeViewKey = "toptimizer-active-view";
 
+const views = ["tasks", "calendar", "budget"];
+const budgetSortKey = "toptimizer-budget-sort";
+
 const defaultState = {
   selectedProjectId: "",
   projects: [],
   tasks: [],
   calendarEvents: [],
+  budgetEntries: [],
 };
 
 let state = { ...defaultState };
 let draggedTaskId = "";
 let suppressTaskClickUntil = 0;
 let activeMobileStatus = "all";
-let activeView = localStorage.getItem(activeViewKey) === "calendar" ? "calendar" : "tasks";
+let activeView = views.includes(localStorage.getItem(activeViewKey)) ? localStorage.getItem(activeViewKey) : "tasks";
+let budgetSort = localStorage.getItem(budgetSortKey) === "date-asc" ? "date-asc" : "date-desc";
+let budgetRange = { from: "", to: "" };
 let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let supabaseClient = null;
 let isSharedMode = false;
@@ -111,6 +117,21 @@ const eventAttendeeMenu = document.querySelector("#eventAttendeeMenu");
 const eventAttendeeList = document.querySelector("#eventAttendeeList");
 const eventAttendeeInputs = document.querySelector("#eventAttendeeInputs");
 const deleteEventButton = document.querySelector("#deleteEventButton");
+const budgetViewButton = document.querySelector("#budgetViewButton");
+const budgetView = document.querySelector("#budgetView");
+const budgetList = document.querySelector("#budgetList");
+const budgetFromDate = document.querySelector("#budgetFromDate");
+const budgetToDate = document.querySelector("#budgetToDate");
+const budgetClearFilter = document.querySelector("#budgetClearFilter");
+const budgetSortSelect = document.querySelector("#budgetSortSelect");
+const newBudgetButton = document.querySelector("#newBudgetButton");
+const budgetIncomeTotal = document.querySelector("#budgetIncomeTotal");
+const budgetExpenseTotal = document.querySelector("#budgetExpenseTotal");
+const budgetNetTotal = document.querySelector("#budgetNetTotal");
+const budgetDialog = document.querySelector("#budgetDialog");
+const budgetForm = document.querySelector("#budgetForm");
+const budgetDialogMode = document.querySelector("#budgetDialogMode");
+const deleteBudgetButton = document.querySelector("#deleteBudgetButton");
 let selectedEventAttendeeIds = [];
 
 async function init() {
@@ -173,16 +194,18 @@ async function loadSharedState() {
     { data: tasks, error: tasksError },
     { data: comments, error: commentsError },
     { data: calendarEvents, error: calendarEventsError },
+    { data: budgetEntries, error: budgetEntriesError },
   ] =
     await Promise.all([
       supabaseClient.from("projects").select("*").order("created_at", { ascending: false }),
       supabaseClient.from("tasks").select("*").order("created_at", { ascending: false }),
       supabaseClient.from("comments").select("*").order("created_at", { ascending: true }),
       supabaseClient.from("calendar_events").select("*").order("date", { ascending: true }),
+      supabaseClient.from("budget_entries").select("*").order("date", { ascending: false }),
     ]);
 
-  if (projectsError || tasksError || commentsError || calendarEventsError) {
-    throw projectsError || tasksError || commentsError || calendarEventsError;
+  if (projectsError || tasksError || commentsError || calendarEventsError || budgetEntriesError) {
+    throw projectsError || tasksError || commentsError || calendarEventsError || budgetEntriesError;
   }
 
   const commentsByTask = buildCommentsByTask(comments || []);
@@ -195,6 +218,7 @@ async function loadSharedState() {
       comments: commentsByTask.get(task.id) || [],
     })),
     calendarEvents: (calendarEvents || []).map(mapCalendarEventFromRow),
+    budgetEntries: (budgetEntries || []).map(mapBudgetEntryFromRow),
   });
 }
 
@@ -246,6 +270,18 @@ function normalizeState(nextState) {
           startTime: event.startTime || "",
           endTime: event.endTime || "",
           description: event.description || "",
+        }))
+      : [],
+    budgetEntries: Array.isArray(nextState.budgetEntries)
+      ? nextState.budgetEntries.map((entry) => ({
+          ...entry,
+          type: entry.type === "expense" ? "expense" : "income",
+          label: entry.label || "",
+          amount: Number(entry.amount) || 0,
+          reference: entry.reference || "",
+          date: entry.date || toDateInputValue(new Date()),
+          createdAt: entry.createdAt || new Date().toISOString(),
+          updatedAt: entry.updatedAt || entry.createdAt || new Date().toISOString(),
         }))
       : [],
   };
@@ -325,6 +361,18 @@ async function persistCalendarEvent(event) {
 async function removeCalendarEvent(eventId) {
   if (!isSharedMode) return;
   const { error } = await supabaseClient.from("calendar_events").delete().eq("id", eventId);
+  if (error) throw error;
+}
+
+async function persistBudgetEntry(entry) {
+  if (!isSharedMode) return;
+  const { error } = await supabaseClient.from("budget_entries").upsert(mapBudgetEntryToRow(entry));
+  if (error) throw error;
+}
+
+async function removeBudgetEntry(entryId) {
+  if (!isSharedMode) return;
+  const { error } = await supabaseClient.from("budget_entries").delete().eq("id", entryId);
   if (error) throw error;
 }
 
@@ -425,6 +473,32 @@ function mapCalendarEventToRow(event) {
   };
 }
 
+function mapBudgetEntryFromRow(row) {
+  return {
+    id: row.id,
+    type: row.type === "expense" ? "expense" : "income",
+    label: row.label || "",
+    amount: Number(row.amount) || 0,
+    reference: row.reference || "",
+    date: row.date,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapBudgetEntryToRow(entry) {
+  return {
+    id: entry.id,
+    type: entry.type,
+    label: entry.label,
+    amount: entry.amount,
+    reference: entry.reference || "",
+    date: entry.date,
+    created_at: entry.createdAt,
+    updated_at: entry.updatedAt,
+  };
+}
+
 function makeId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -444,6 +518,7 @@ function render() {
   renderBoard();
   renderActiveView();
   renderCalendar();
+  renderBudget();
 }
 
 function renderPeople() {
@@ -473,20 +548,37 @@ function renderCommentAuthorOptions() {
 }
 
 function renderActiveView() {
+  const isTasks = activeView === "tasks";
   const isCalendar = activeView === "calendar";
+  const isBudget = activeView === "budget";
   document.body.dataset.activeView = activeView;
-  projectPanel.hidden = isCalendar;
-  taskView.hidden = isCalendar;
+
+  projectPanel.hidden = !isTasks;
+  taskView.hidden = !isTasks;
   calendarView.hidden = !isCalendar;
-  workspaceEyebrow.textContent = isCalendar ? "Team calendar" : "Project task manager";
-  projectTitle.textContent = isCalendar ? "Calendar" : getSelectedProject()?.name || "Create a project";
-  tasksViewButton.classList.toggle("is-active", !isCalendar);
-  calendarViewButton.classList.toggle("is-active", isCalendar);
-  tasksViewButton.setAttribute("aria-selected", String(!isCalendar));
-  calendarViewButton.setAttribute("aria-selected", String(isCalendar));
-  searchInput.closest(".search").hidden = isCalendar;
-  newTaskButton.hidden = isCalendar;
-  deleteProjectButton.hidden = isCalendar;
+  budgetView.hidden = !isBudget;
+
+  workspaceEyebrow.textContent = isCalendar
+    ? "Team calendar"
+    : isBudget
+      ? "Workspace finances"
+      : "Project task manager";
+  projectTitle.textContent = isCalendar
+    ? "Calendar"
+    : isBudget
+      ? "Budget"
+      : getSelectedProject()?.name || "Create a project";
+
+  [tasksViewButton, calendarViewButton, budgetViewButton].forEach((button) => {
+    const active = button.dataset.view === activeView;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+
+  searchInput.closest(".search").hidden = !isTasks;
+  commentAuthorSelect.closest(".comment-author-control").hidden = isBudget;
+  newTaskButton.hidden = !isTasks;
+  deleteProjectButton.hidden = !isTasks;
   newEventButton.hidden = !isCalendar;
 }
 
@@ -638,6 +730,95 @@ function getCalendarAttendeeNames(event) {
     .filter(Boolean);
   if (names.length <= 2) return names.join(", ");
   return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+}
+
+function getFilteredSortedBudgetEntries() {
+  const { from, to } = budgetRange;
+  const filtered = state.budgetEntries.filter((entry) => {
+    if (from && entry.date < from) return false;
+    if (to && entry.date > to) return false;
+    return true;
+  });
+  return filtered.sort((a, b) => {
+    const aKey = `${a.date} ${a.createdAt}`;
+    const bKey = `${b.date} ${b.createdAt}`;
+    return budgetSort === "date-asc" ? aKey.localeCompare(bKey) : bKey.localeCompare(aKey);
+  });
+}
+
+function renderBudget() {
+  budgetFromDate.value = budgetRange.from;
+  budgetToDate.value = budgetRange.to;
+  budgetSortSelect.value = budgetSort;
+
+  const entries = getFilteredSortedBudgetEntries();
+  const income = entries
+    .filter((entry) => entry.type === "income")
+    .reduce((total, entry) => total + entry.amount, 0);
+  const expense = entries
+    .filter((entry) => entry.type === "expense")
+    .reduce((total, entry) => total + entry.amount, 0);
+  const net = income - expense;
+
+  budgetIncomeTotal.textContent = formatMoney(income);
+  budgetExpenseTotal.textContent = formatMoney(expense);
+  budgetNetTotal.textContent = formatMoney(net);
+  budgetNetTotal.closest(".budget-net").classList.toggle("is-negative", net < 0);
+
+  if (entries.length === 0) {
+    const isFiltered = budgetRange.from || budgetRange.to;
+    budgetList.innerHTML = `<div class="empty-board">${
+      isFiltered
+        ? "No entries in this date range. Adjust the filter or clear it."
+        : "No entries yet. Add income or expenses to start tracking your net budget."
+    }</div>`;
+    return;
+  }
+
+  budgetList.innerHTML = `
+    <div class="budget-row budget-row-head" aria-hidden="true">
+      <span>Date</span>
+      <span>Description</span>
+      <span>Reference</span>
+      <span>Amount</span>
+    </div>
+    ${entries.map(renderBudgetRow).join("")}
+  `;
+}
+
+function renderBudgetRow(entry) {
+  const sign = entry.type === "income" ? "+" : "−";
+  return `
+    <div class="budget-row budget-${entry.type}" data-entry-id="${entry.id}" role="button" tabindex="0" aria-label="Edit ${escapeHtml(entry.label)}">
+      <span class="budget-date">${escapeHtml(formatDate(entry.date))}</span>
+      <span class="budget-label">
+        <span class="budget-tag">${entry.type === "income" ? "Income" : "Expense"}</span>
+        ${escapeHtml(entry.label)}
+      </span>
+      <span class="budget-reference">${renderBudgetReference(entry.reference)}</span>
+      <span class="budget-amount">${sign}${formatMoney(entry.amount)}</span>
+    </div>
+  `;
+}
+
+function renderBudgetReference(reference) {
+  const value = (reference || "").trim();
+  if (!value) return `<span class="budget-reference-empty">—</span>`;
+  if (/^https?:\/\//i.test(value)) {
+    return `<a href="${escapeHtml(value)}" target="_blank" rel="noopener noreferrer" data-reference-link title="${escapeHtml(value)}">${escapeHtml(shortenUrl(value))}</a>`;
+  }
+  return escapeHtml(value);
+}
+
+function shortenUrl(value) {
+  try {
+    const url = new URL(value);
+    const path = url.pathname === "/" ? "" : url.pathname;
+    const label = `${url.hostname}${path}`.replace(/^www\./, "");
+    return label.length > 42 ? `${label.slice(0, 41)}…` : label;
+  } catch {
+    return value.length > 42 ? `${value.slice(0, 41)}…` : value;
+  }
 }
 
 function renderStatusTabs(projectTasks) {
@@ -942,6 +1123,69 @@ async function deleteCurrentEvent() {
   }
 }
 
+function openBudgetDialog(entryId = "") {
+  const entry = state.budgetEntries.find((item) => item.id === entryId);
+  budgetForm.reset();
+  budgetForm.elements.entryId.value = entry ? entry.id : "";
+  budgetForm.elements.type.value = entry ? entry.type : "income";
+  budgetForm.elements.label.value = entry ? entry.label : "";
+  budgetForm.elements.amount.value = entry ? entry.amount : "";
+  budgetForm.elements.date.value = entry ? entry.date : toDateInputValue(new Date());
+  budgetForm.elements.reference.value = entry ? entry.reference : "";
+  deleteBudgetButton.hidden = !entry;
+  budgetDialogMode.textContent = entry ? "Edit entry" : "New entry";
+  budgetDialog.showModal();
+  budgetForm.elements.label.focus();
+}
+
+async function saveBudgetEntry(formData) {
+  const entryId = formData.get("entryId");
+  const existingEntry = state.budgetEntries.find((entry) => entry.id === entryId);
+  const amount = Math.max(0, Number.parseFloat(formData.get("amount")) || 0);
+  const nextEntry = {
+    id: existingEntry ? existingEntry.id : makeId("budget"),
+    type: formData.get("type") === "expense" ? "expense" : "income",
+    label: formData.get("label").trim(),
+    amount,
+    reference: formData.get("reference").trim(),
+    date: formData.get("date"),
+    createdAt: existingEntry ? existingEntry.createdAt : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existingEntry) {
+    state.budgetEntries = state.budgetEntries.map((entry) =>
+      entry.id === existingEntry.id ? nextEntry : entry,
+    );
+  } else {
+    state.budgetEntries = [...state.budgetEntries, nextEntry];
+  }
+
+  saveState();
+  renderBudget();
+
+  try {
+    await persistBudgetEntry(nextEntry);
+  } catch (error) {
+    showStorageError(error, "Budget entry was saved locally, but not to Supabase.");
+  }
+}
+
+async function deleteCurrentBudgetEntry() {
+  const entryId = budgetForm.elements.entryId.value;
+  if (!entryId) return;
+  state.budgetEntries = state.budgetEntries.filter((entry) => entry.id !== entryId);
+  saveState();
+  budgetDialog.close();
+  renderBudget();
+
+  try {
+    await removeBudgetEntry(entryId);
+  } catch (error) {
+    showStorageError(error, "Budget entry was removed locally, but not from Supabase.");
+  }
+}
+
 async function deleteCurrentTask() {
   const taskId = taskForm.elements.taskId.value;
   if (!taskId) return;
@@ -1104,9 +1348,11 @@ function getCommentAuthor() {
 }
 
 function setBusy(isBusy) {
-  [newProjectButton, newTaskButton, deleteProjectButton, addCommentButton, newEventButton].forEach((button) => {
-    button.disabled = isBusy;
-  });
+  [newProjectButton, newTaskButton, deleteProjectButton, addCommentButton, newEventButton, newBudgetButton].forEach(
+    (button) => {
+      button.disabled = isBusy;
+    },
+  );
 }
 
 function showStorageError(error, fallbackMessage) {
@@ -1134,6 +1380,13 @@ function formatEventTime(event) {
 
 function formatClockTime(value) {
   return value ? String(value).slice(0, 5) : "";
+}
+
+function formatMoney(value) {
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value || 0);
 }
 
 function toDateInputValue(date) {
@@ -1209,6 +1462,44 @@ calendarViewButton.addEventListener("click", () => {
   localStorage.setItem(activeViewKey, activeView);
   renderActiveView();
   renderCalendar();
+});
+budgetViewButton.addEventListener("click", () => {
+  activeView = "budget";
+  localStorage.setItem(activeViewKey, activeView);
+  renderActiveView();
+  renderBudget();
+});
+newBudgetButton.addEventListener("click", () => openBudgetDialog());
+budgetSortSelect.addEventListener("change", () => {
+  budgetSort = budgetSortSelect.value === "date-asc" ? "date-asc" : "date-desc";
+  localStorage.setItem(budgetSortKey, budgetSort);
+  renderBudget();
+});
+budgetFromDate.addEventListener("change", () => {
+  budgetRange = { ...budgetRange, from: budgetFromDate.value };
+  renderBudget();
+});
+budgetToDate.addEventListener("change", () => {
+  budgetRange = { ...budgetRange, to: budgetToDate.value };
+  renderBudget();
+});
+budgetClearFilter.addEventListener("click", () => {
+  budgetRange = { from: "", to: "" };
+  renderBudget();
+});
+budgetList.addEventListener("click", (event) => {
+  if (event.target.closest("[data-reference-link]")) return;
+  const row = event.target.closest("[data-entry-id]");
+  if (!row) return;
+  openBudgetDialog(row.dataset.entryId);
+});
+budgetList.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  if (event.target.closest("[data-reference-link]")) return;
+  const row = event.target.closest("[data-entry-id]");
+  if (!row) return;
+  event.preventDefault();
+  openBudgetDialog(row.dataset.entryId);
 });
 commentAuthorSelect.addEventListener("change", () => {
   localStorage.setItem(commentAuthorKey, commentAuthorSelect.value);
@@ -1340,8 +1631,15 @@ eventForm.addEventListener("submit", (event) => {
   eventDialog.close();
 });
 
+budgetForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveBudgetEntry(new FormData(budgetForm));
+  budgetDialog.close();
+});
+
 deleteTaskButton.addEventListener("click", deleteCurrentTask);
 deleteEventButton.addEventListener("click", deleteCurrentEvent);
+deleteBudgetButton.addEventListener("click", deleteCurrentBudgetEntry);
 
 commentList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-reply-button]");

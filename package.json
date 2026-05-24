@@ -1,0 +1,11 @@
+{
+  "name": "toptimizer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A simplified Linear-style task manager for a 25-person team.",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "dev": "python3 -m http.server 8000",
+    "config": "node scripts/generate-config.js"
+  }
+}

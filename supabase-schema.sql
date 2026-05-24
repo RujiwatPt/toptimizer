@@ -41,6 +41,17 @@ create table if not exists public.calendar_events (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.budget_entries (
+  id text primary key,
+  type text not null default 'income',
+  label text not null default '',
+  amount numeric not null default 0,
+  reference text not null default '',
+  date date not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.comments add column if not exists author_id text;
 alter table public.comments add column if not exists author_name text not null default 'Unknown';
 
@@ -50,17 +61,20 @@ alter table public.projects enable row level security;
 alter table public.tasks enable row level security;
 alter table public.comments enable row level security;
 alter table public.calendar_events enable row level security;
+alter table public.budget_entries enable row level security;
 
 grant usage on schema public to anon;
 grant select, insert, update, delete on public.projects to anon;
 grant select, insert, update, delete on public.tasks to anon;
 grant select, insert, update, delete on public.comments to anon;
 grant select, insert, update, delete on public.calendar_events to anon;
+grant select, insert, update, delete on public.budget_entries to anon;
 
 drop policy if exists "public projects access" on public.projects;
 drop policy if exists "public tasks access" on public.tasks;
 drop policy if exists "public comments access" on public.comments;
 drop policy if exists "public calendar events access" on public.calendar_events;
+drop policy if exists "public budget entries access" on public.budget_entries;
 
 create policy "public projects access"
 on public.projects
@@ -85,6 +99,13 @@ with check (true);
 
 create policy "public calendar events access"
 on public.calendar_events
+for all
+to anon
+using (true)
+with check (true);
+
+create policy "public budget entries access"
+on public.budget_entries
 for all
 to anon
 using (true)

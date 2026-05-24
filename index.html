@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Toptimizer Tasks</title>
-    <link rel="stylesheet" href="styles.css?v=calendar-10" />
+    <link rel="stylesheet" href="styles.css?v=budget-11" />
   </head>
   <body>
     <div class="app-shell">
@@ -43,6 +43,7 @@
           <div class="view-tabs" role="tablist" aria-label="Workspace views">
             <button class="view-tab is-active" id="tasksViewButton" type="button" data-view="tasks" role="tab" aria-selected="true">Tasks</button>
             <button class="view-tab" id="calendarViewButton" type="button" data-view="calendar" role="tab" aria-selected="false">Calendar</button>
+            <button class="view-tab" id="budgetViewButton" type="button" data-view="budget" role="tab" aria-selected="false">Budget</button>
           </div>
           <div class="topbar-actions">
             <label class="search">
@@ -114,6 +115,49 @@
             <span>Sat</span>
           </div>
           <div class="calendar-grid" id="calendarGrid"></div>
+        </section>
+
+        <section class="budget-view" id="budgetView" aria-label="Budget" hidden>
+          <div class="budget-toolbar">
+            <div class="budget-filter">
+              <label>
+                From
+                <input type="date" id="budgetFromDate" />
+              </label>
+              <label>
+                To
+                <input type="date" id="budgetToDate" />
+              </label>
+              <button class="ghost-button" id="budgetClearFilter" type="button">Clear</button>
+            </div>
+            <div class="budget-toolbar-actions">
+              <label class="budget-sort">
+                Sort
+                <select id="budgetSortSelect">
+                  <option value="date-desc">Newest first</option>
+                  <option value="date-asc">Oldest first</option>
+                </select>
+              </label>
+              <button class="primary-button" id="newBudgetButton" type="button">New entry</button>
+            </div>
+          </div>
+
+          <section class="budget-summary" aria-label="Budget summary">
+            <div class="budget-card is-income">
+              <span id="budgetIncomeTotal">0</span>
+              <p>Income</p>
+            </div>
+            <div class="budget-card is-expense">
+              <span id="budgetExpenseTotal">0</span>
+              <p>Expense</p>
+            </div>
+            <div class="budget-card budget-net">
+              <span id="budgetNetTotal">0</span>
+              <p>Net budget</p>
+            </div>
+          </section>
+
+          <div class="budget-list" id="budgetList"></div>
         </section>
       </main>
     </div>
@@ -242,8 +286,51 @@
       </form>
     </dialog>
 
+    <dialog id="budgetDialog">
+      <form method="dialog" class="dialog-form" id="budgetForm">
+        <div>
+          <p class="eyebrow" id="budgetDialogMode">New entry</p>
+          <h2>Budget entry</h2>
+        </div>
+        <input type="hidden" name="entryId" />
+        <div class="budget-type-toggle" role="radiogroup" aria-label="Entry type">
+          <label class="budget-type-option is-income">
+            <input type="radio" name="type" value="income" checked />
+            <span>Income</span>
+          </label>
+          <label class="budget-type-option is-expense">
+            <input type="radio" name="type" value="expense" />
+            <span>Expense</span>
+          </label>
+        </div>
+        <label>
+          Description
+          <input name="label" required maxlength="120" placeholder="Sponsorship, venue rental, prizes…" />
+        </label>
+        <div class="form-grid">
+          <label>
+            Amount
+            <input name="amount" type="number" min="0" step="0.01" required placeholder="0.00" inputmode="decimal" />
+          </label>
+          <label>
+            Date
+            <input name="date" type="date" required />
+          </label>
+        </div>
+        <label>
+          Reference (text or URL)
+          <input name="reference" maxlength="400" placeholder="https://receipt-link or a short note" />
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="danger-button" id="deleteBudgetButton">Delete</button>
+          <button type="button" class="ghost-button" data-close>Cancel</button>
+          <button type="submit" class="primary-button">Save</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script src="app.js?v=calendar-10"></script>
+    <script src="app.js?v=budget-11"></script>
   </body>
 </html>

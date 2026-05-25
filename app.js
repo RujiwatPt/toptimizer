@@ -1657,4 +1657,37 @@ document.querySelectorAll("[data-close]").forEach((button) => {
   button.addEventListener("click", () => button.closest("dialog").close());
 });
 
-init();
+const WORKSPACE_PASSWORD = "Optimiz@25";
+const authUnlockedKey = "toptimizer-unlocked";
+const authGate = document.getElementById("authGate");
+const authForm = document.getElementById("authForm");
+const authError = document.getElementById("authError");
+
+function startApp() {
+  if (authGate) authGate.hidden = true;
+  init();
+}
+
+function requireAuth() {
+  if (sessionStorage.getItem(authUnlockedKey) === "yes") {
+    startApp();
+    return;
+  }
+
+  authGate.hidden = false;
+  authForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const entered = new FormData(authForm).get("password");
+    if (entered === WORKSPACE_PASSWORD) {
+      sessionStorage.setItem(authUnlockedKey, "yes");
+      authError.hidden = true;
+      startApp();
+    } else {
+      authError.hidden = false;
+      authForm.password.value = "";
+      authForm.password.focus();
+    }
+  });
+}
+
+requireAuth();

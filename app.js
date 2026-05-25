@@ -1668,23 +1668,39 @@ function startApp() {
   init();
 }
 
-function requireAuth() {
+// Derive a session token from the password instead of storing a constant
+// "yes" flag, so a hand-injected sessionStorage value cannot unlock the app
+// without knowing the password.
+async function authToken(password) {
+  const data = new TextEncoder().encode(`toptimizer:${password}`);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function requireAuth() {
   if (!WORKSPACE_PASSWORD) {
     startApp();
     return;
   }
 
-  if (sessionStorage.getItem(authUnlockedKey) === "yes") {
+  const expectedToken = await authToken(WORKSPACE_PASSWORD);
+
+  if (sessionStorage.getItem(authUnlockedKey) === expectedToken) {
     startApp();
     return;
   }
 
+  // A stale or forged token is not valid — clear it and require the password.
+  sessionStorage.removeItem(authUnlockedKey);
+
   authGate.hidden = false;
-  authForm.addEventListener("submit", (event) => {
+  authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const entered = new FormData(authForm).get("password");
-    if (entered === WORKSPACE_PASSWORD) {
-      sessionStorage.setItem(authUnlockedKey, "yes");
+    if ((await authToken(entered)) === expectedToken) {
+      sessionStorage.setItem(authUnlockedKey, expectedToken);
       authError.hidden = true;
       startApp();
     } else {

@@ -18,15 +18,25 @@ A simplified Linear-style task manager for a 25-person team. It can run locally 
 
 ## Run
 
-Open `index.html` in a browser.
-
-For local testing:
+First generate `config.js` from `.env` (it is no longer committed):
 
 ```bash
-python3 -m http.server 8000
+npm run config
+```
+
+Then start a local server:
+
+```bash
+npm start
 ```
 
 Then open `http://localhost:8000`.
+
+### Workspace password
+
+Set `WORKSPACE_PASSWORD` in `.env` to gate access behind a password prompt, then run `npm run config`. Leave it empty (or omit it) to disable the prompt.
+
+> Note: this is a client-side prompt only. The password is delivered to the browser in `config.js`, so it deters casual access but can be bypassed by anyone who inspects the page. For real protection, use host-level password protection or Supabase Auth.
 
 ## Shared Workspace Setup
 

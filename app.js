@@ -1657,7 +1657,7 @@ document.querySelectorAll("[data-close]").forEach((button) => {
   button.addEventListener("click", () => button.closest("dialog").close());
 });
 
-const WORKSPACE_PASSWORD = "Optimiz@25";
+const WORKSPACE_PASSWORD = window.TOPTIMIZER_CONFIG?.workspacePassword || "";
 const authUnlockedKey = "toptimizer-unlocked";
 const authGate = document.getElementById("authGate");
 const authForm = document.getElementById("authForm");
@@ -1669,6 +1669,11 @@ function startApp() {
 }
 
 function requireAuth() {
+  if (!WORKSPACE_PASSWORD) {
+    startApp();
+    return;
+  }
+
   if (sessionStorage.getItem(authUnlockedKey) === "yes") {
     startApp();
     return;

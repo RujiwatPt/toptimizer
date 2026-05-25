@@ -29,6 +29,9 @@ const supabaseAnonKey =
   env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "";
 
+const workspacePassword =
+  process.env.WORKSPACE_PASSWORD || env.WORKSPACE_PASSWORD || "";
+
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
     "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env",
@@ -39,6 +42,7 @@ const config = `window.TOPTIMIZER_CONFIG = ${JSON.stringify(
   {
     supabaseUrl,
     supabaseAnonKey,
+    workspacePassword,
   },
   null,
   2,

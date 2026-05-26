@@ -220,7 +220,7 @@ async function loadSharedState() {
   const commentsByTask = buildCommentsByTask(comments || []);
   await migrateBacklogTasksToTodo(tasks || []);
   state = normalizeState({
-    selectedProjectId: localStorage.getItem(selectedProjectKey) || "",
+    selectedProjectId: safeLocalGet(selectedProjectKey) || "",
     projects: (projects || []).map(mapProjectFromRow),
     tasks: (tasks || []).map((task) => ({
       ...mapTaskFromRow(task),
@@ -364,8 +364,8 @@ async function migrateBacklogTasksToTodo(tasks) {
 }
 
 function saveState() {
-  localStorage.setItem(selectedProjectKey, state.selectedProjectId || "");
-  localStorage.setItem(storageKey, JSON.stringify(state));
+  safeLocalSet(selectedProjectKey, state.selectedProjectId || "");
+  safeLocalSet(storageKey, JSON.stringify(state));
 }
 
 async function persistProject(project) {
@@ -1751,38 +1751,92 @@ async function authToken(password) {
   return `f:${(hash >>> 0).toString(16)}`;
 }
 
-async function requireAuth() {
+// sessionStorage can throw (e.g. SecurityError) in some private/incognito
+// contexts. These wrappers never throw, so a storage failure can never let
+// the gate fall through to the app — it just means the unlock isn't
+// remembered and the password is asked for again.
+function safeSessionGet(key) {
   try {
-    await runAuthGate();
-  } catch (error) {
-    // Never leave a blank screen because the gate failed — log and start.
-    console.error("Auth gate failed; starting app.", error);
-    startApp();
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
   }
 }
 
-async function runAuthGate() {
+function safeSessionSet(key, value) {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    /* not remembered this session — acceptable */
+  }
+}
+
+function safeSessionRemove(key) {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+// localStorage can likewise throw in restricted contexts; these wrappers keep
+// a storage failure from breaking the shared (Supabase) fetch or selection.
+function safeLocalGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
+
+// The gate FAILS CLOSED: if anything goes wrong, the password prompt is shown
+// rather than the app. The only path to startApp() is no configured password,
+// a valid remembered token, or a correct password entry.
+async function requireAuth() {
   if (!WORKSPACE_PASSWORD) {
     startApp();
     return;
   }
 
-  const expectedToken = await authToken(WORKSPACE_PASSWORD);
+  let expectedToken = null;
+  try {
+    expectedToken = await authToken(WORKSPACE_PASSWORD);
+  } catch (error) {
+    console.error("Could not derive auth token.", error);
+  }
 
-  if (sessionStorage.getItem(authUnlockedKey) === expectedToken) {
+  if (expectedToken && safeSessionGet(authUnlockedKey) === expectedToken) {
     startApp();
     return;
   }
 
   // A stale or forged token is not valid — clear it and require the password.
-  sessionStorage.removeItem(authUnlockedKey);
+  safeSessionRemove(authUnlockedKey);
 
   authGate.hidden = false;
+  if (authForm.password) authForm.password.focus();
+
   authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const entered = new FormData(authForm).get("password");
-    if ((await authToken(entered)) === expectedToken) {
-      sessionStorage.setItem(authUnlockedKey, expectedToken);
+
+    let token = null;
+    try {
+      token = await authToken(entered);
+    } catch (error) {
+      console.error("Could not derive auth token.", error);
+    }
+
+    if (token && expectedToken && token === expectedToken) {
+      safeSessionSet(authUnlockedKey, expectedToken);
       authError.hidden = true;
       startApp();
     } else {

@@ -242,6 +242,16 @@ button:disabled:hover {
   line-height: 1;
 }
 
+.icon-button.is-spinning {
+  animation: icon-spin 0.7s linear infinite;
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .primary-button {
   background: var(--accent);
   color: #fffaf0;

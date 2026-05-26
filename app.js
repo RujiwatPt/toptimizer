@@ -65,6 +65,7 @@ let budgetRange = { from: "", to: "" };
 let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let supabaseClient = null;
 let isSharedMode = false;
+let isRefreshing = false;
 
 const projectList = document.querySelector("#projectList");
 const projectPanel = document.querySelector("#projectPanel");
@@ -87,6 +88,7 @@ const searchInput = document.querySelector("#searchInput");
 const newProjectButton = document.querySelector("#newProjectButton");
 const newTaskButton = document.querySelector("#newTaskButton");
 const deleteProjectButton = document.querySelector("#deleteProjectButton");
+const refreshButton = document.querySelector("#refreshButton");
 const projectDialog = document.querySelector("#projectDialog");
 const projectForm = document.querySelector("#projectForm");
 const taskDialog = document.querySelector("#taskDialog");
@@ -220,6 +222,51 @@ async function loadSharedState() {
     calendarEvents: (calendarEvents || []).map(mapCalendarEventFromRow),
     budgetEntries: (budgetEntries || []).map(mapBudgetEntryFromRow),
   });
+}
+
+// Re-pull shared data when the user returns to the tab, so projects/tasks
+// created by other users show up without a manual reload. Skipped while a
+// dialog is open to avoid yanking the UI out from under an in-progress edit.
+async function refreshSharedState() {
+  if (!isSharedMode || isRefreshing) return;
+  if (document.querySelector("dialog[open]")) return;
+
+  isRefreshing = true;
+  try {
+    await loadSharedState();
+    render();
+  } catch (error) {
+    // A failed refresh keeps the current snapshot rather than blanking the UI.
+    console.warn("Could not refresh shared workspace.", error);
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+// Explicit user-triggered refresh. Unlike the focus handler, this always
+// re-renders (even in local mode) and surfaces a visible spinning/disabled
+// state plus an error if the fetch fails.
+async function manualRefresh() {
+  if (isRefreshing) return;
+
+  if (!isSharedMode) {
+    render();
+    return;
+  }
+
+  isRefreshing = true;
+  refreshButton.disabled = true;
+  refreshButton.classList.add("is-spinning");
+  try {
+    await loadSharedState();
+    render();
+  } catch (error) {
+    showStorageError(error, "Could not refresh workspace. Showing the last loaded data.");
+  } finally {
+    isRefreshing = false;
+    refreshButton.disabled = false;
+    refreshButton.classList.remove("is-spinning");
+  }
 }
 
 function buildCommentsByTask(rows) {
@@ -1436,6 +1483,7 @@ function clearDragState() {
 }
 
 newProjectButton.addEventListener("click", openProjectDialog);
+refreshButton.addEventListener("click", manualRefresh);
 newTaskButton.addEventListener("click", () => openTaskDialog());
 newEventButton.addEventListener("click", () => openEventDialog());
 deleteProjectButton.addEventListener("click", deleteSelectedProject);
@@ -1710,5 +1758,10 @@ async function requireAuth() {
     }
   });
 }
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshSharedState();
+});
+window.addEventListener("focus", refreshSharedState);
 
 requireAuth();

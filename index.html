@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Toptimizer Tasks</title>
-    <link rel="stylesheet" href="styles.css?v=auth-14" />
+    <link rel="stylesheet" href="styles.css?v=sync-16" />
   </head>
   <body>
     <div class="auth-gate" id="authGate" hidden>
@@ -67,6 +67,7 @@
               Comment as
               <select id="commentAuthorSelect"></select>
             </label>
+            <button class="icon-button" id="refreshButton" type="button" aria-label="Refresh workspace" title="Refresh workspace">⟳</button>
             <button class="ghost-button" id="deleteProjectButton" type="button">Delete project</button>
             <button class="primary-button" id="newTaskButton" type="button">New task</button>
           </div>
@@ -344,6 +345,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <script type="module" src="app.js?v=auth-14"></script>
+    <script type="module" src="app.js?v=sync-16"></script>
   </body>
 </html>

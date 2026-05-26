@@ -1,3 +1,10 @@
+// Wrapped in an IIFE so nothing (init, state, etc.) leaks onto window — this
+// keeps the console `init()` bypass closed while still loading as a classic
+// script, which (unlike type="module") also works when index.html is opened
+// directly via file://.
+(() => {
+"use strict";
+
 const people = [
   { id: "person-15", name: "อชิ(Achi)" },
   { id: "person-06", name: "อะตอม(Atom)" },
@@ -1720,14 +1727,41 @@ function startApp() {
 // "yes" flag, so a hand-injected sessionStorage value cannot unlock the app
 // without knowing the password.
 async function authToken(password) {
-  const data = new TextEncoder().encode(`toptimizer:${password}`);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+  const input = `toptimizer:${password}`;
+
+  // Preferred: SHA-256 via SubtleCrypto (available on https/localhost).
+  if (typeof crypto !== "undefined" && crypto.subtle?.digest) {
+    try {
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+      return `s:${Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("")}`;
+    } catch {
+      // fall through to the non-crypto fallback
+    }
+  }
+
+  // Fallback for insecure contexts (e.g. opening index.html via file://) where
+  // SubtleCrypto is unavailable. Still beats a constant "yes" flag.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `f:${(hash >>> 0).toString(16)}`;
 }
 
 async function requireAuth() {
+  try {
+    await runAuthGate();
+  } catch (error) {
+    // Never leave a blank screen because the gate failed — log and start.
+    console.error("Auth gate failed; starting app.", error);
+    startApp();
+  }
+}
+
+async function runAuthGate() {
   if (!WORKSPACE_PASSWORD) {
     startApp();
     return;
@@ -1765,3 +1799,4 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("focus", refreshSharedState);
 
 requireAuth();
+})();

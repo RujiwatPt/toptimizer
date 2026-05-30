@@ -7,5 +7,8 @@
     "start": "python3 -m http.server 8000",
     "dev": "python3 -m http.server 8000",
     "config": "node scripts/generate-config.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
   }
 }

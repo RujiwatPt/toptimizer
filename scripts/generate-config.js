@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { createHash } = require("crypto");
 
 const rootDir = path.resolve(__dirname, "..");
 const envPath = path.join(rootDir, ".env");
@@ -18,6 +19,18 @@ function parseEnv(source) {
     env[key] = rawValue.replace(/^['"]|['"]$/g, "");
     return env;
   }, {});
+}
+
+// Produces a double-hash stored in config.js.
+// inner = sha256("toptimizer:<password>")  — stored in sessionStorage on auth
+// outer = sha256("verify:s:<inner_hex>")   — stored in config.js
+// Reading config.js gives only the outer hash; you cannot reverse it to forge
+// the sessionStorage value, so config.js exposure cannot bypass the gate.
+function hashPassword(password) {
+  if (!password) return "";
+  const inner = createHash("sha256").update(`toptimizer:${password}`).digest("hex");
+  const outer = createHash("sha256").update(`verify:s:${inner}`).digest("hex");
+  return `v:${outer}`;
 }
 
 const env = fs.existsSync(envPath) ? parseEnv(fs.readFileSync(envPath, "utf8")) : {};
@@ -42,7 +55,7 @@ const config = `window.TOPTIMIZER_CONFIG = ${JSON.stringify(
   {
     supabaseUrl,
     supabaseAnonKey,
-    workspacePassword,
+    workspacePasswordHash: hashPassword(workspacePassword),
   },
   null,
   2,

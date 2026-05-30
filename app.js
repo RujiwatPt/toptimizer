@@ -1712,7 +1712,7 @@ document.querySelectorAll("[data-close]").forEach((button) => {
   button.addEventListener("click", () => button.closest("dialog").close());
 });
 
-const WORKSPACE_PASSWORD = window.TOPTIMIZER_CONFIG?.workspacePassword || "";
+const WORKSPACE_PASSWORD_HASH = window.TOPTIMIZER_CONFIG?.workspacePasswordHash || "";
 const authUnlockedKey = "toptimizer-unlocked";
 const authGate = document.getElementById("authGate");
 const authForm = document.getElementById("authForm");
@@ -1723,13 +1723,11 @@ function startApp() {
   init();
 }
 
-// Derive a session token from the password instead of storing a constant
-// "yes" flag, so a hand-injected sessionStorage value cannot unlock the app
-// without knowing the password.
+// Hashes the entered password into a session token: s:<sha256("toptimizer:<pw>")>.
+// This token is stored in sessionStorage on successful auth — it is NOT the
+// value in config.js, so reading config.js cannot produce a valid session token.
 async function authToken(password) {
   const input = `toptimizer:${password}`;
-
-  // Preferred: SHA-256 via SubtleCrypto (available on https/localhost).
   if (typeof crypto !== "undefined" && crypto.subtle?.digest) {
     try {
       const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
@@ -1737,18 +1735,28 @@ async function authToken(password) {
         .map((byte) => byte.toString(16).padStart(2, "0"))
         .join("")}`;
     } catch {
-      // fall through to the non-crypto fallback
+      // fall through
     }
   }
+  return null;
+}
 
-  // Fallback for insecure contexts (e.g. opening index.html via file://) where
-  // SubtleCrypto is unavailable. Still beats a constant "yes" flag.
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
+// Verifies a session token against the double-hash stored in config.js.
+// config stores: v:<sha256("verify:<token>")>
+// So you need the token itself (not the config value) to produce a valid token.
+async function verifyToken(token) {
+  if (!token || !token.startsWith("s:")) return null;
+  if (typeof crypto !== "undefined" && crypto.subtle?.digest) {
+    try {
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`verify:${token}`));
+      return `v:${Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("")}`;
+    } catch {
+      // fall through
+    }
   }
-  return `f:${(hash >>> 0).toString(16)}`;
+  return null;
 }
 
 // sessionStorage can throw (e.g. SecurityError) in some private/incognito
@@ -1799,26 +1807,25 @@ function safeLocalSet(key, value) {
 
 // The gate FAILS CLOSED: if anything goes wrong, the password prompt is shown
 // rather than the app. The only path to startApp() is no configured password,
-// a valid remembered token, or a correct password entry.
+// a valid remembered session token, or a correct password entry.
+//
+// config.js stores a double-hash (v:sha256("verify:<session_token>")).
+// sessionStorage stores the inner session token (s:sha256("toptimizer:<pw>")).
+// Reading config.js alone cannot forge a valid sessionStorage value.
 async function requireAuth() {
-  if (!WORKSPACE_PASSWORD) {
+  if (!WORKSPACE_PASSWORD_HASH) {
     startApp();
     return;
   }
 
-  let expectedToken = null;
-  try {
-    expectedToken = await authToken(WORKSPACE_PASSWORD);
-  } catch (error) {
-    console.error("Could not derive auth token.", error);
-  }
-
-  if (expectedToken && safeSessionGet(authUnlockedKey) === expectedToken) {
+  const storedToken = safeSessionGet(authUnlockedKey);
+  const storedVerified = await verifyToken(storedToken);
+  if (storedVerified && storedVerified === WORKSPACE_PASSWORD_HASH) {
     startApp();
     return;
   }
 
-  // A stale or forged token is not valid — clear it and require the password.
+  // Stale or forged token — clear it and require the password.
   safeSessionRemove(authUnlockedKey);
 
   authGate.hidden = false;
@@ -1827,16 +1834,11 @@ async function requireAuth() {
   authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const entered = new FormData(authForm).get("password");
+    const token = await authToken(entered);
+    const verified = await verifyToken(token);
 
-    let token = null;
-    try {
-      token = await authToken(entered);
-    } catch (error) {
-      console.error("Could not derive auth token.", error);
-    }
-
-    if (token && expectedToken && token === expectedToken) {
-      safeSessionSet(authUnlockedKey, expectedToken);
+    if (verified && verified === WORKSPACE_PASSWORD_HASH) {
+      safeSessionSet(authUnlockedKey, token);
       authError.hidden = true;
       startApp();
     } else {
